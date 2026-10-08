@@ -1061,6 +1061,8 @@ const syncImageGenerationSettings = (show_detail = false) => {
           enabled: Boolean(image_generation_enabled?.checked),
           mode: (image_generation_mode?.value || image_generation.mode) as SettingsImageGenerationMode,
           gpt_image: readGptImageSettingsFromDom(iframe_document),
+          probability_enabled: Boolean(iframe_document.querySelector<HTMLInputElement>('[data-image-probability-enabled]')?.checked),
+          api_probability: Number(iframe_document.querySelector<HTMLInputElement>('[data-image-api-probability]')?.value ?? image_generation.api_probability),
           active_preset_id: active_preset.id,
           presets: next_presets,
           active_vibe_group_id,
@@ -3535,6 +3537,44 @@ const syncImageGenerationSettings = (show_detail = false) => {
         });
       });
 
+      const refresh_appearance = () => {
+        renderPromptSettings(iframe_document);
+        applyAppearanceSettings(iframe_body, getSettings());
+        applyFloatingLauncherAppearance();
+        sync_bubble_controls();
+      };
+      iframe_document.querySelector('[data-appearance-preset]')?.addEventListener('change', event => {
+        const id = (event.target as HTMLSelectElement).value;
+        const settings = getSettings();
+        const preset = [...getBuiltinAppearancePresets(), ...settings.appearance_presets].find(item => item.id === id);
+        if (!preset) return;
+        saveSettings({ ...settings, appearance: normalizeAppearanceSettings(preset.colors), active_appearance_preset_id: id });
+        refresh_appearance();
+      });
+      iframe_document.querySelectorAll<HTMLElement>('[data-appearance-preset-action]').forEach(button => {
+        button.addEventListener('click', async () => {
+          const settings = getSettings();
+          const action = button.dataset.appearancePresetAction;
+          const current = settings.appearance_presets.find(item => item.id === settings.active_appearance_preset_id);
+          if (action !== 'save-as' && !current) {
+            showInlineToast(iframe_document, '请先选择自定义方案；内置方案可修改配色后另存。'); return;
+          }
+          if (action === 'delete') {
+            if (!await showConfirmDialog(iframe_document, { tone: 'warning', title: '删除配色方案', message: `删除“${current!.name}”？当前配色仍保留。`, confirmText: '删除' })) return;
+            const latest = getSettings();
+            saveSettings({ ...latest, appearance_presets: latest.appearance_presets.filter(item => item.id !== current!.id), active_appearance_preset_id: latest.active_appearance_preset_id === current!.id ? '' : latest.active_appearance_preset_id });
+          } else {
+            const name = action === 'overwrite' ? current!.name : host_window.prompt('配色方案名称', current?.name || '我的配色');
+            if (!name?.trim()) return;
+            const id = action === 'save-as' ? `custom-${createNovelAiCacheSecretKey()}` : current!.id;
+            const colors = action === 'rename' ? current!.colors : normalizeAppearanceSettings(settings.appearance);
+            saveSettings({ ...settings, appearance_presets: [...settings.appearance_presets.filter(item => item.id !== id), { id, name: name.trim().slice(0, 60), colors }], active_appearance_preset_id: id });
+          }
+          refresh_appearance();
+          showInlineToast(iframe_document, '配色方案已更新。');
+        });
+      });
+
       const handle_appearance_color_change = (event: Event) => {
         const target = event.target instanceof HTMLInputElement ? event.target : null;
         if (!target?.matches?.('[data-appearance-color]')) {
@@ -3555,7 +3595,7 @@ const syncImageGenerationSettings = (show_detail = false) => {
         applyAppearanceSettings(iframe_body, getSettings());
         applyFloatingLauncherAppearance();
         sync_bubble_controls();
-        updateText(iframe_document, '[data-appearance-detail]', '美化方案已保存。');
+        updateText(iframe_document, '[data-appearance-detail]', '当前配色已应用；点击“另存方案”或“覆盖所选”保存到方案库。');
       };
       iframe_document.addEventListener('input', handle_appearance_color_change);
       iframe_document.addEventListener('change', handle_appearance_color_change);
@@ -3565,6 +3605,7 @@ const syncImageGenerationSettings = (show_detail = false) => {
         saveSettings({
           ...settings,
           appearance: getDefaultAppearanceSettings(),
+          active_appearance_preset_id: 'builtin-default',
           bubble_style: getDefaultBubbleStyleSettings(),
         });
         renderPromptSettings(iframe_document);
@@ -3612,9 +3653,16 @@ const syncImageGenerationSettings = (show_detail = false) => {
           showInlineToast(iframe_document, '请先开启生图并配置当前所选接口。');
           return;
         }
-        const parser = new DOMParser().parseFromString(source_html, 'text/html');
-        const assets = [...parser.querySelectorAll<HTMLElement>('[data-image-asset]')];
+        const planned_html = planImageAssetRoutes(source_html, image_settings);
+        if (active_entry) updateOnlineEntry(active_entry.id, { html: planned_html });
+        const parser = new DOMParser().parseFromString(planned_html, 'text/html');
+        const assets = [...parser.querySelectorAll<HTMLElement>('[data-image-asset]')].filter(asset => asset.dataset.imageRenderMode !== 'css' && asset.querySelector('img'));
         const images = assets.map(asset => asset.querySelector<HTMLImageElement>('img')).filter(Boolean) as HTMLImageElement[];
+        if (!images.length) {
+          renderOnlineContent(iframe_document);
+          showInlineToast(iframe_document, '本页图片均使用 CSS 绘画，没有发送生图请求。');
+          return;
+        }
         trigger_image_generation.disabled = true;
         appendImageGenerationLog('请求', `开始生成 ${images.length} 张图片`, {
           provider: image_settings.mode,
@@ -5690,6 +5738,9 @@ const syncImageGenerationSettings = (show_detail = false) => {
         );
       });
       image_connection_mode?.addEventListener('change', syncImageGenerationEndpointVisibility);
+      iframe_document.querySelectorAll('[data-image-probability-enabled], [data-image-api-probability]').forEach(input => {
+        input.addEventListener('change', () => syncImageGenerationSettings(true));
+      });
       iframe_document.querySelectorAll('[data-gpt-image-field]').forEach(input => {
         input.addEventListener('change', () => syncImageGenerationSettings(true));
       });

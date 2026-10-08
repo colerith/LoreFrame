@@ -1,17 +1,18 @@
 # «LoreFrame»｜拟界文库
 
-## 当前版本：1.7.5（2026-10-08）
+## 当前版本：1.7.6（2026-10-08）
 
 酒馆助手在线导入：
 
 ```js
-import "https://cdn.jsdelivr.net/gh/colerith/LoreFrame@loreframe-v1.7.5/file/loreframe-1.7.5.js";
+import "https://cdn.jsdelivr.net/gh/colerith/LoreFrame@loreframe-v1.7.6/file/loreframe-1.7.6.js";
 ```
 
-- Claude / Gemini Flash 兼容：发送消息统一以 user 结束，移除末尾 assistant 与预填充。
-- 新增 GPT Image 独立配置与文生图：地址、密钥、模型、画幅、质量、格式、背景、共用画风。
-- 保留 NovelAI、柏宝绘配置/Vibe 导入及 TauriTavern 面板尺寸修复。
-- [版本清单与 SHA-256](file/loreframe-1.7.5.manifest.json) · [源码与使用说明](tavern-helper/拟界文库/README.md) · [发布流程](tavern-helper/拟界文库/发布流程.md)
+- 主题配色方案库：默认森系、电波手机蓝粉，支持日夜配色另存、覆盖、重命名与删除。
+- 可选概率出图：每个新图片位置按 0–100% 概率选择 API 或 CSS 绘画，结果保存，刷新/重试不重抽。
+- 命中 API 后仍使用生图按钮生成，CSS 分支不调用生图 API。
+- 保留 Claude/Gemini Flash 尾部 user 消息、GPT Image、柏宝绘导入与面板尺寸修复。
+- [版本清单与 SHA-256](file/loreframe-1.7.6.manifest.json) · [使用说明](tavern-helper/拟界文库/README.md) · [发布流程](tavern-helper/拟界文库/发布流程.md)
 - 历史版本文件和标签保留，更新需替换在线导入链接。
 - ESLint、模拟接口及 DOM 回归、生产构建通过；未运行真实付费生图或酒馆真机验收。
 

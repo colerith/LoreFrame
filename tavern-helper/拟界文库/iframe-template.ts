@@ -5184,6 +5184,10 @@ function buildIframeHtml() {
                             </div>
                             <p class="settings-card__note">开启后，请求提示词会附加生图思考与当前生图接口参数，方便模型在 HTML 中规划可生成的图片资产。</p>
                             <div class="field">
+                              <label class="checkbox-row"><input type="checkbox" data-image-probability-enabled /><span>按概率选择 API 生图 / CSS 绘画</span></label>
+                              <label for="loreframe-image-probability">API 命中概率（%）</label>
+                              <input class="input" id="loreframe-image-probability" type="number" min="0" max="100" step="1" data-image-api-probability />
+                              <p class="settings-card__note">关闭时保持原有 API 生图方式；开启后对新页面每个图片位置独立抽取。0% 全用 CSS，100% 全用 API。结果随页面保存，刷新和重试不重抽；API 命中后仍由生图按钮发起请求。</p>
                               <label for="online-content-image-mode">生图方法</label>
                               <select class="select" id="online-content-image-mode" data-image-generation-mode>
                                 <option value="novelai">NovelAI</option>
@@ -5417,6 +5421,17 @@ function buildIframeHtml() {
                           </div>
                         </div>
                         <p class="settings-card__note" data-theme-mode-detail>当前使用北京时间自动切换。</p>
+                      </section>
+                      <section class="settings-card">
+                        <div class="settings-card__head"><h3>主题配色方案</h3></div>
+                        <label class="field">选择方案<select class="select" data-appearance-preset></select></label>
+                        <div class="button-row">
+                          <button class="plain-button" type="button" data-appearance-preset-action="save-as">另存方案</button>
+                          <button class="plain-button" type="button" data-appearance-preset-action="overwrite">覆盖所选</button>
+                          <button class="plain-button" type="button" data-appearance-preset-action="rename">重命名</button>
+                          <button class="plain-button" type="button" data-appearance-preset-action="delete">删除方案</button>
+                        </div>
+                        <p class="settings-card__note">一套方案包含日间与夜间全部主题色。内置方案可另存为自定义方案；调色即时应用，方案库需另存或覆盖。悬浮球的独立自定义颜色仍按下方设置生效。</p>
                       </section>
                       <section class="appearance-section">
                         <div class="appearance-section__head">

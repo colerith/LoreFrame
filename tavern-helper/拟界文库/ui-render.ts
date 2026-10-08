@@ -22,6 +22,7 @@ function normalizeImageAssetMarkup(html: string) {
   }
   const document = new DOMParser().parseFromString(html, 'text/html');
   document.querySelectorAll<HTMLElement>('[data-image-asset]').forEach((asset, index) => {
+    if (asset.dataset.imageRenderMode === 'css') return;
     let image = asset.querySelector<HTMLImageElement>('img');
     const prompt = String(image?.dataset.imagePrompt || asset.dataset.imagePrompt || '').trim();
     const negative_prompt = String(image?.dataset.imageNegativePrompt || asset.dataset.imageNegativePrompt || '').trim();
@@ -128,6 +129,13 @@ function bindOnlinePreviewShell(preview: HTMLIFrameElement) {
 
 function renderAppearanceSettings(iframe_document: Document) {
   const settings = getSettings();
+  const presets = [...getBuiltinAppearancePresets(), ...normalizeAppearancePresets(settings.appearance_presets)];
+  const select = iframe_document.querySelector<HTMLSelectElement>('[data-appearance-preset]');
+  if (select) {
+    select.innerHTML = '<option value="">当前配色 / 未选择方案</option>' + presets.map(preset =>
+      `<option value="${escapeHtml(preset.id)}">${escapeHtml(preset.name)}</option>`).join('');
+    select.value = settings.active_appearance_preset_id || '';
+  }
   const labels: Record<AppearanceColorKey, string> = {
     panel_bg: '主背景',
     panel_bg_soft: '分区背景',
@@ -900,6 +908,8 @@ function renderPromptSettings(iframe_document: Document) {
     if (vibe_library_next) vibe_library_next.disabled = page >= page_count - 1;
   }
   renderGptImageSettings(iframe_document, image_generation);
+  setChecked(iframe_document, '[data-image-probability-enabled]', image_generation.probability_enabled);
+  updateValue(iframe_document, '[data-image-api-probability]', String(image_generation.api_probability));
   const image_generation_active = image_generation.enabled &&
     (image_generation.mode === 'gpt_image' || Boolean(active_image_preset?.id));
   updateText(

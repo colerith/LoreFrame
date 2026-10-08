@@ -18,7 +18,7 @@ const context = vm.createContext({
     return Response.json({ data: [{ b64_json: 'cGl4ZWw=' }] });
   },
 });
-for (const name of ['settings.ts', 'gpt-image.ts', 'prompt-builder.ts']) {
+for (const name of ['settings.ts', 'gpt-image.ts', 'image-routing.ts', 'prompt-builder.ts']) {
   vm.runInContext(
     ts.transpileModule(fs.readFileSync(base + name, 'utf8'), {
       compilerOptions: { target: ts.ScriptTarget.ES2022 },

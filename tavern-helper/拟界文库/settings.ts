@@ -68,6 +68,24 @@ type SettingsAppearance = {
   day: SettingsAppearanceTheme;
   night: SettingsAppearanceTheme;
 };
+type SettingsAppearancePreset = { id: string; name: string; colors: SettingsAppearance };
+
+function getBuiltinAppearancePresets(): SettingsAppearancePreset[] {
+  return [
+    { id: 'builtin-default', name: '默认 · 森系', colors: getDefaultAppearanceSettings() },
+    { id: 'builtin-wave', name: '电波手机 · 蓝粉', colors: {
+      day: { panel_bg: '#f6f8ff', panel_bg_soft: '#fde8f0', popup_bg: '#fc9fbb', panel_text: '#374558', panel_muted: '#6e7682', panel_accent: '#5e80be', panel_accent_strong: '#204075', bubble_bg: '#dbe6ff' },
+      night: { panel_bg: '#1b2235', panel_bg_soft: '#29324b', popup_bg: '#68485f', panel_text: '#edf1ff', panel_muted: '#b2bdd7', panel_accent: '#9ab8ed', panel_accent_strong: '#ffc2d7', bubble_bg: '#354365' },
+    } },
+  ];
+}
+
+function normalizeAppearancePresets(presets: unknown): SettingsAppearancePreset[] {
+  if (!Array.isArray(presets)) return [];
+  return [...new Map(presets.filter(p => p && typeof p.id === 'string' && p.id.startsWith('custom-')).map(p => [p.id, {
+    id: p.id, name: String(p.name || '自定义方案').trim().slice(0, 60) || '自定义方案', colors: normalizeAppearanceSettings(p.colors),
+  }] as const)).values()];
+}
 
 type SettingsThemeMode = 'system' | 'day' | 'night';
 
@@ -225,6 +243,8 @@ type SettingsImageGenerationVibeGroup = {
 
 type SettingsImageGeneration = {
   enabled: boolean;
+  probability_enabled: boolean;
+  api_probability: number;
   mode: SettingsImageGenerationMode;
   gpt_image: SettingsGptImage;
   active_preset_id: string;
@@ -256,6 +276,8 @@ type SettingsState = {
   theme_mode: SettingsThemeMode;
   theme_schedule: SettingsThemeSchedule;
   appearance: SettingsAppearance;
+  appearance_presets: SettingsAppearancePreset[];
+  active_appearance_preset_id: string;
   bubble_style: SettingsBubbleStyle;
   online_storage: SettingsOnlineStorage;
   generation_retry: SettingsGenerationRetry;
@@ -715,6 +737,8 @@ function getDefaultSettings() {
       night_start: '18:00',
     },
     appearance: getDefaultAppearanceSettings(),
+    appearance_presets: [],
+    active_appearance_preset_id: '',
     bubble_style: getDefaultBubbleStyleSettings(),
     online_storage: getDefaultOnlineStorageSettings(),
     generation_retry: {
@@ -1348,6 +1372,8 @@ function getDefaultImageGenerationSettings(): SettingsImageGeneration {
   return {
     enabled: false,
     mode: 'novelai',
+    probability_enabled: false,
+    api_probability: 100,
     gpt_image: normalizeGptImageSettings(),
     active_preset_id: preset.id,
     presets: [preset],
@@ -1384,6 +1410,8 @@ function normalizeImageGenerationSettings(
     : vibe_groups[0].id;
   return {
     enabled: Boolean(image_generation?.enabled),
+    probability_enabled: Boolean(image_generation?.probability_enabled),
+    api_probability: clampInteger(image_generation?.api_probability, 100, 0, 100),
     mode: normalizeImageGenerationMode(image_generation?.mode),
     gpt_image: normalizeGptImageSettings(image_generation?.gpt_image),
     active_preset_id,
@@ -1577,6 +1605,8 @@ function normalizeSettings(settings: SettingsInput | null | undefined): Settings
     theme_mode: normalizeThemeMode(settings?.theme_mode),
     theme_schedule: normalizeThemeSchedule(settings?.theme_schedule),
     appearance: normalizeAppearanceSettings(settings?.appearance),
+    appearance_presets: normalizeAppearancePresets(settings?.appearance_presets),
+    active_appearance_preset_id: String(settings?.active_appearance_preset_id || ''),
     bubble_style: normalizeBubbleStyleSettings(settings?.bubble_style),
     online_storage: normalizeOnlineStorageSettings(settings?.online_storage),
     generation_retry: normalizeGenerationRetrySettings(
@@ -2026,6 +2056,8 @@ function saveSettings(settings: SettingsInput | null | undefined) {
     theme_mode: normalizeThemeMode(settings?.theme_mode),
     theme_schedule: normalizeThemeSchedule(settings?.theme_schedule),
     appearance: normalizeAppearanceSettings(settings?.appearance),
+    appearance_presets: normalizeAppearancePresets(settings?.appearance_presets),
+    active_appearance_preset_id: String(settings?.active_appearance_preset_id || ''),
     bubble_style: normalizeBubbleStyleSettings(settings?.bubble_style),
     online_storage: normalizeOnlineStorageSettings(settings?.online_storage),
     generation_retry: normalizeGenerationRetrySettings(
