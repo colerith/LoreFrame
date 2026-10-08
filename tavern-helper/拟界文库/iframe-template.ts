@@ -1484,6 +1484,9 @@ function buildIframeHtml() {
               gap: 14px;
             }
 
+            [data-image-provider-panel][hidden] {
+              display: none !important;
+            }
             .settings-card {
               display: grid;
               position: relative;
@@ -5179,16 +5182,35 @@ function buildIframeHtml() {
                                 <span>开启生图思考注入</span>
                               </label>
                             </div>
-                            <p class="settings-card__note">开启后，请求提示词会附加生图思考与当前 NovelAI 参数，方便模型在 HTML 中规划可生成的图片资产。</p>
+                            <p class="settings-card__note">开启后，请求提示词会附加生图思考与当前生图接口参数，方便模型在 HTML 中规划可生成的图片资产。</p>
                             <div class="field">
                               <label for="online-content-image-mode">生图方法</label>
                               <select class="select" id="online-content-image-mode" data-image-generation-mode>
                                 <option value="novelai">NovelAI</option>
+                                <option value="gpt_image">GPT Image</option>
                               </select>
                             </div>
                           </section>
 
-                          <section class="settings-card">
+                          <section class="settings-card" data-image-provider-panel="gpt_image" hidden>
+                            <div class="settings-card__head"><h3>GPT Image 配置</h3></div>
+                            <p class="settings-card__note">独立保存 GPT Image 配置，支持官方服务及兼容代理。当前用于文生图；NovelAI 的 Vibe 与负面提示词不会发送到此接口。</p>
+                            <div class="api-grid">
+                              <div class="field is-wide"><label for="loreframe-gpt-endpoint">接口地址</label><input class="input" id="loreframe-gpt-endpoint" data-gpt-image-field="endpoint" placeholder="留空使用官方；支持根地址、/v1 或完整 images/generations 地址" /></div>
+                              <div class="field"><label for="loreframe-gpt-key">API Key</label><input class="input" id="loreframe-gpt-key" type="password" autocomplete="off" data-gpt-image-field="api_key" /></div>
+                              <div class="field"><label for="loreframe-gpt-model">模型 ID</label><input class="input" id="loreframe-gpt-model" data-gpt-image-field="model" list="loreframe-gpt-model-list" /><button class="plain-button" type="button" data-fetch-gpt-models>拉取 GPT Image 模型</button>
+                                <datalist id="loreframe-gpt-model-list" data-gpt-image-model-list><option value="gpt-image-2.5-sunburst"></option><option value="gpt-image-2.5-flare"></option><option value="gpt-image-2"></option><option value="gpt-image-1.5"></option><option value="gpt-image-1"></option><option value="gpt-image-1-mini"></option></datalist>
+                              </div>
+                              <div class="field"><label for="loreframe-gpt-size">画幅</label><select class="select" id="loreframe-gpt-size" data-gpt-image-field="size"><option value="auto">自动</option><option value="1024x1024">方形 · 1024 × 1024</option><option value="1536x1024">横图 · 1536 × 1024</option><option value="1024x1536">竖图 · 1024 × 1536</option></select></div>
+                              <div class="field"><label for="loreframe-gpt-quality">质量</label><select class="select" id="loreframe-gpt-quality" data-gpt-image-field="quality"><option value="auto">自动</option><option value="low">低</option><option value="medium">中</option><option value="high">高</option><option value="xhigh">超高（2.5 系列）</option><option value="max">最高（2.5 系列）</option></select></div>
+                              <div class="field"><label for="loreframe-gpt-format">图片格式</label><select class="select" id="loreframe-gpt-format" data-gpt-image-field="output_format"><option value="png">PNG</option><option value="webp">WebP</option><option value="jpeg">JPEG</option></select></div>
+                              <div class="field"><label for="loreframe-gpt-background">背景</label><select class="select" id="loreframe-gpt-background" data-gpt-image-field="background"><option value="auto">自动</option><option value="opaque">不透明</option><option value="transparent">透明（PNG / WebP）</option></select></div>
+                              <div class="field is-wide"><label for="loreframe-gpt-prompt">共用画风与要求</label><textarea class="textarea" id="loreframe-gpt-prompt" rows="4" maxlength="4000" data-gpt-image-field="positive_prompt" placeholder="用自然语言描述风格；每张图的画面描述会追加在后面。"></textarea></div>
+                            </div>
+                            <p class="settings-card__note">拉取列表不生图，代理可能返回其他用途的模型；模型及质量选项以服务商支持为准。生成请求最多等待 4 分钟。</p>
+                            <button class="plain-button" type="button" data-save-gpt-image>保存 GPT Image 设置</button>
+                          </section>
+                          <section class="settings-card" data-image-provider-panel="novelai">
                             <div class="settings-card__head">
                               <h3 class="novelai-config-title">NovelAI 预设配置</h3>
                             </div>

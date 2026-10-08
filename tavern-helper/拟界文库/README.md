@@ -10,6 +10,16 @@
 
 导入是本机配置快照；柏宝绘修改后需再次读取。不会把角色库外貌或全部参考图自动套到每张页面图片中。云端发布只包含源码和构建结果，不包含用户运行时密钥与图库。
 
+## Claude / Gemini Flash 与 GPT Image
+
+页面生成的消息统一为 `system → user`，取消“收到”占位和末尾 assistant 预填充。主 API、第二 API、重试与提示词预览共用相同的消息组装函数；ECoT 格式要求仍作为完整的 user 指令发送，不作为 assistant 续写前缀。
+
+在「剧场生图」选择 `GPT Image`，填写独立地址、密钥、模型、画幅、质量、图片格式、背景和共用画风。地址留空使用官方服务，也支持代理根路径、`/v1` 或完整生图端点。切换生图方法保留两套设置，GPT Image 使用自然语言图片描述，不发送 NovelAI 的 Vibe、采样和负面提示词参数。
+
+当前 GPT Image 接入用于文生图；点击已有页面的生图按钮时按当前所选接口处理占位图片。返回 Base64 或代理图片链接时都会保存为内嵌图片。透明背景需选 PNG/WebP；超高与最高质量需服务商模型支持。拉取模型列表不会生成图片，可继续手填模型 ID。
+
+接口参数依据 [OpenAI Images 官方文档](https://developers.openai.com/api/reference/resources/images/methods/generate)；本地验证使用模拟响应，不代表真实模型权限、付费出图效果或浏览器跨域连通性已验证。
+
 ## 功能介绍
 
 ### 页面生成
@@ -88,6 +98,7 @@
 ├─ 发布流程.md               # 版本规则、构建、发布与验证流程
 ├─ release.json              # 界面和发布产物共用的版本配置
 ├─ baibai.ts                 # 柏宝绘只读配置与 Vibe 导入、NovelAI 地址规范化
+├─ gpt-image.ts              # GPT Image 独立配置界面、模型列表、请求与响应处理
 ├─ branding-globals.d.ts     # APP_TITLE 等拼装时注入的品牌常量声明
 ├─ index.ts                  # 打包入口；读取 raw 片段、拼接 IIFE、生成 inline sourcemap
 ├─ constants.ts              # 脚本 ID、存储 key、尺寸常量、全局运行状态

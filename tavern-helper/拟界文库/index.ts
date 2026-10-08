@@ -17,6 +17,7 @@ import uiEventsSource from './ui-events?raw';
 import hostButtonsSource from './host-buttons?raw';
 import releaseSource from './release.json?raw';
 import baibaiSource from './baibai?raw';
+import gptImageSource from './gpt-image?raw';
 
 const loreFrameBranding = {
   title: '拟界文库',
@@ -41,6 +42,7 @@ const onlineFeatureParts = [
   ['types.ts', typesSource],
   ['settings.ts', settingsSource],
   ['baibai.ts', baibaiSource],
+  ['gpt-image.ts', gptImageSource],
   ['online-store.ts', onlineStoreSource],
   ['utils.ts', utilsSource],
   ['storage.ts', storageSource],

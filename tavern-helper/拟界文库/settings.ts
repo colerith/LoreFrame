@@ -132,7 +132,31 @@ type SettingsSecondaryApiProfile = {
 };
 
 type SettingsImageGenerationConnectionMode = 'official' | 'custom';
-type SettingsImageGenerationMode = 'novelai';
+type SettingsImageGenerationMode = 'novelai' | 'gpt_image';
+
+type SettingsGptImage = {
+  endpoint: string;
+  api_key: string;
+  model: string;
+  size: string;
+  quality: 'auto' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+  output_format: 'png' | 'jpeg' | 'webp';
+  background: 'auto' | 'opaque' | 'transparent';
+  positive_prompt: string;
+};
+
+function normalizeGptImageSettings(config?: Partial<SettingsGptImage>): SettingsGptImage {
+  return {
+    endpoint: String(config?.endpoint || '').trim(),
+    api_key: String(config?.api_key || '').trim(),
+    model: String(config?.model || 'gpt-image-2.5-sunburst').trim(),
+    size: ['auto', '1024x1024', '1536x1024', '1024x1536'].includes(config?.size || '') ? config!.size! : '1024x1024',
+    quality: ['auto', 'low', 'medium', 'high', 'xhigh', 'max'].includes(config?.quality || '') ? config!.quality! : 'auto',
+    output_format: ['png', 'jpeg', 'webp'].includes(config?.output_format || '') ? config!.output_format! : 'png',
+    background: ['auto', 'opaque', 'transparent'].includes(config?.background || '') ? config!.background! : 'auto',
+    positive_prompt: String(config?.positive_prompt || '').slice(0, 4000),
+  };
+}
 
 const IMAGE_GENERATION_SIZE_PRESETS: Record<string, { width: number; height: number }> = {
   '512x512': { width: 512, height: 512 },
@@ -202,6 +226,7 @@ type SettingsImageGenerationVibeGroup = {
 type SettingsImageGeneration = {
   enabled: boolean;
   mode: SettingsImageGenerationMode;
+  gpt_image: SettingsGptImage;
   active_preset_id: string;
   presets: SettingsImageGenerationPreset[];
   active_vibe_group_id: string;
@@ -1188,7 +1213,7 @@ function normalizeImageGenerationConnectionMode(value: unknown): SettingsImageGe
 }
 
 function normalizeImageGenerationMode(value: unknown): SettingsImageGenerationMode {
-  return value === 'novelai' ? 'novelai' : 'novelai';
+  return value === 'gpt_image' ? 'gpt_image' : 'novelai';
 }
 
 function normalizeImageGenerationSizePreset(value: unknown, width: unknown, height: unknown) {
@@ -1323,6 +1348,7 @@ function getDefaultImageGenerationSettings(): SettingsImageGeneration {
   return {
     enabled: false,
     mode: 'novelai',
+    gpt_image: normalizeGptImageSettings(),
     active_preset_id: preset.id,
     presets: [preset],
     active_vibe_group_id: vibe_group.id,
@@ -1359,6 +1385,7 @@ function normalizeImageGenerationSettings(
   return {
     enabled: Boolean(image_generation?.enabled),
     mode: normalizeImageGenerationMode(image_generation?.mode),
+    gpt_image: normalizeGptImageSettings(image_generation?.gpt_image),
     active_preset_id,
     presets,
     active_vibe_group_id,

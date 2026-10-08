@@ -30,6 +30,16 @@ type PromptViewerConfig = {
 function buildImageGenerationThinkingPrompt() {
   const settings = getSettings();
   const image_generation = settings.image_generation || getDefaultImageGenerationSettings();
+  if (image_generation.enabled && image_generation.mode === 'gpt_image') {
+    const config = normalizeGptImageSettings(image_generation.gpt_image);
+    return `<ImageGenerationThinking mode="gpt_image">
+按页面需要规划图片资产；用完整自然语言描述主体、构图、环境、光线与风格，不使用 NovelAI 标签权重。
+每张图片使用 <figure data-image-asset data-image-provider="gpt_image"><img data-image-prompt="完整画面描述" alt="图片用途" /></figure>。
+模型：${config.model}；画幅：${config.size}；质量：${config.quality}；背景：${config.background}。
+共用画风：${config.positive_prompt || '无'}。
+不要在 HTML 中调用 API、包含密钥、编造图片地址或加入 NovelAI 专属参数。客户端使用当前 GPT Image 配置生成图片。
+</ImageGenerationThinking>`;
+  }
   const preset =
     image_generation.presets.find(item => item.id === image_generation.active_preset_id) ||
     image_generation.presets[0];
@@ -297,7 +307,7 @@ function buildOnlineOrderedPrompts(
     '移动端优先保证完整显示，不能依赖超宽固定宽度布局；在窄屏下必须自动改为单列或分页流，禁止正文被裁切、缩成桌面缩略图或必须横向拖拽后才能读完主体内容。',
     '在 </html> 后不要输出任何其他内容。',
     image_generation_thinking
-      ? '生图模式为 NovelAI 时，每张规划图片必须使用 data-image-asset、data-image-provider="novelai"、data-image-prompt 属性；图片占位必须放在完整 HTML 内，供后处理器解析。负面提示词只使用当前预设配置，不要写入 HTML。'
+      ? '每张规划图片必须使用 data-image-asset、data-image-prompt 属性，data-image-provider 按本轮生图配置填写；占位图放在完整 HTML 内，不写入密钥或负面提示词。'
       : '',
   ].join('\n');
   const ecot_format = `<ECoT_format>
@@ -322,7 +332,7 @@ ECoT必须按此模板详细呈现：
 [不抄格式]
 在此提醒自己不要模仿、抄袭之前的历史页面中的格式、模块、排版或其他相关内容，在本次页面中将使用新的排版
 
-${image_generation_thinking ? '[生图资产规划]\n如果页面适合图片资产，规划 NovelAI 生图用途、画面、提示词、尺寸和 Vibe 使用方式；如果不适合，说明不使用图片资产。' : ''}
+${image_generation_thinking ? '[生图资产规划]\n如果页面适合图片资产，按本轮生图接口规划用途、画面、提示词和尺寸；如果不适合，说明不使用图片资产。' : ''}
 </thinking>
 <!-- End the ECoT -->
 </ECoT_format>`;
@@ -341,9 +351,7 @@ ${image_generation_thinking ? '[生图资产规划]\n如果页面适合图片资
 
   return [
     { role: 'system', content: system_role_prompt },
-    { role: 'assistant', content: '收到' },
     { role: 'user', content: user_prompt },
-    { role: 'assistant', content: '不使用其他思考方式，直接开始ECoT\n<!-- Start the ECoT -->' },
   ];
 }
 

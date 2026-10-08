@@ -899,13 +899,16 @@ function renderPromptSettings(iframe_document: Document) {
     if (vibe_library_prev) vibe_library_prev.disabled = page <= 0;
     if (vibe_library_next) vibe_library_next.disabled = page >= page_count - 1;
   }
-  const image_generation_active =
-    image_generation.enabled && image_generation.mode === 'novelai' && Boolean(active_image_preset?.id);
+  renderGptImageSettings(iframe_document, image_generation);
+  const image_generation_active = image_generation.enabled &&
+    (image_generation.mode === 'gpt_image' || Boolean(active_image_preset?.id));
   updateText(
     iframe_document,
     '[data-image-generation-detail]',
     image_generation_active
-      ? `已激活 NovelAI；当前预设：${active_image_preset.name}；Vibe 组：${active_vibe_group.name}。`
+      ? image_generation.mode === 'gpt_image'
+        ? `已激活 GPT Image；模型：${image_generation.gpt_image.model}；画幅：${image_generation.gpt_image.size}。`
+        : `已激活 NovelAI；当前预设：${active_image_preset.name}；Vibe 组：${active_vibe_group.name}。`
       : image_generation.enabled
         ? '生图开关已打开，但尚未满足“生图方法 + 有效配置”激活条件。'
         : '生图思考注入已关闭。',

@@ -1060,6 +1060,7 @@ const syncImageGenerationSettings = (show_detail = false) => {
           ...image_generation,
           enabled: Boolean(image_generation_enabled?.checked),
           mode: (image_generation_mode?.value || image_generation.mode) as SettingsImageGenerationMode,
+          gpt_image: readGptImageSettingsFromDom(iframe_document),
           active_preset_id: active_preset.id,
           presets: next_presets,
           active_vibe_group_id,
@@ -3602,13 +3603,13 @@ const syncImageGenerationSettings = (show_detail = false) => {
           showInlineToast(iframe_document, '当前页面没有可处理的生图资产。');
           return;
         }
-        if (!image_settings.enabled || image_settings.mode !== 'novelai' || !active_preset) {
+        if (!image_settings.enabled || (image_settings.mode === 'novelai' && !active_preset)) {
           appendImageGenerationLog('跳过', '生图配置未激活', {
             enabled: image_settings.enabled,
             mode: image_settings.mode,
             preset: active_preset?.name || '',
           });
-          showInlineToast(iframe_document, '请先开启生图、选择 NovelAI 并激活有效预设。');
+          showInlineToast(iframe_document, '请先开启生图并配置当前所选接口。');
           return;
         }
         const parser = new DOMParser().parseFromString(source_html, 'text/html');
@@ -3616,22 +3617,26 @@ const syncImageGenerationSettings = (show_detail = false) => {
         const images = assets.map(asset => asset.querySelector<HTMLImageElement>('img')).filter(Boolean) as HTMLImageElement[];
         trigger_image_generation.disabled = true;
         appendImageGenerationLog('请求', `开始生成 ${images.length} 张图片`, {
-          endpoint: active_preset.connection_mode === 'custom' ? active_preset.endpoint : 'NovelAI 官网',
-          model: active_preset.model,
-          size: `${active_preset.width}x${active_preset.height}`,
+          provider: image_settings.mode,
+          model: image_settings.mode === 'gpt_image' ? image_settings.gpt_image.model : active_preset!.model,
+          size: image_settings.mode === 'gpt_image' ? image_settings.gpt_image.size : `${active_preset!.width}x${active_preset!.height}`,
         });
         let success_count = 0;
         try {
           for (let index = 0; index < images.length; index += 1) {
             const image = images[index];
             const html_prompt = String(image.dataset.imagePrompt || '').trim();
-            const prompt = [active_preset.positive_prompt, html_prompt].map(normalizeNovelAiPrompt).filter(Boolean).join(', ');
-            const negative_prompt = normalizeNovelAiPrompt(active_preset.negative_prompt);
+            const is_gpt = image_settings.mode === 'gpt_image';
+            const prompt = is_gpt
+              ? [image_settings.gpt_image.positive_prompt, html_prompt].filter(Boolean).join('\n\n')
+              : [active_preset!.positive_prompt, html_prompt].map(normalizeNovelAiPrompt).filter(Boolean).join(', ');
+            const negative_prompt = is_gpt ? '' : normalizeNovelAiPrompt(active_preset!.negative_prompt);
             appendImageGenerationLog('请求', `发送第 ${index + 1}/${images.length} 张图片请求`, {
               prompt: prompt.slice(0, 512),
               negative_prompt: negative_prompt.slice(0, 512),
             });
-            const result = await requestNovelAiImage(active_preset, prompt, negative_prompt, active_vibe_references);
+            const result = is_gpt ? await requestGptImage(image_settings.gpt_image, prompt)
+              : await requestNovelAiImage(active_preset!, prompt, negative_prompt, active_vibe_references);
             image.src = result.image;
             image.removeAttribute('data-image-asset-rendered');
             const status = assets[index].querySelector<HTMLElement>('[data-image-generation-status]');
@@ -5681,10 +5686,40 @@ const syncImageGenerationSettings = (show_detail = false) => {
         const image_generation = syncImageGenerationSettings(false);
         saveImageGenerationState(
           { ...image_generation, mode: image_generation_mode.value as SettingsImageGenerationMode },
-          `已切换生图方法：${image_generation_mode.value === 'novelai' ? 'NovelAI' : image_generation_mode.value}。`,
+          `已切换生图方法：${image_generation_mode.value === 'novelai' ? 'NovelAI' : 'GPT Image'}。`,
         );
       });
       image_connection_mode?.addEventListener('change', syncImageGenerationEndpointVisibility);
+      iframe_document.querySelectorAll('[data-gpt-image-field]').forEach(input => {
+        input.addEventListener('change', () => syncImageGenerationSettings(true));
+      });
+      iframe_document.querySelector('[data-save-gpt-image]')?.addEventListener('click', () => {
+        const config = readGptImageSettingsFromDom(iframe_document);
+        try {
+          loreFrameGptImageRoot(config.endpoint);
+          if (config.background === 'transparent' && config.output_format === 'jpeg')
+            throw Error('透明背景请使用 PNG 或 WebP 格式');
+          syncImageGenerationSettings(true);
+          showInlineToast(iframe_document, 'GPT Image 设置已保存。');
+        } catch (error) {
+          showInlineToast(iframe_document, error instanceof Error ? error.message : '请检查 GPT Image 配置');
+        }
+      });
+      const fetch_gpt_models = iframe_document.querySelector<HTMLButtonElement>('[data-fetch-gpt-models]');
+      fetch_gpt_models?.addEventListener('click', async () => {
+        const config = readGptImageSettingsFromDom(iframe_document);
+        fetch_gpt_models.disabled = true;
+        try {
+          const models = await requestGptImageModels(config);
+          const current = readGptImageSettingsFromDom(iframe_document);
+          if (!iframe.isConnected || current.endpoint !== config.endpoint || current.api_key !== config.api_key) return;
+          const list = iframe_document.querySelector('[data-gpt-image-model-list]');
+          if (list) list.innerHTML = models.map(model => `<option value="${escapeHtml(model)}"></option>`).join('');
+          showInlineToast(iframe_document, '已读取模型；请选择支持图像生成的模型，也可手动填写。');
+        } catch (error) {
+          showInlineToast(iframe_document, error instanceof Error ? error.message : '读取失败，请手动填写模型 ID');
+        } finally { fetch_gpt_models.disabled = false; }
+      });
       syncImageGenerationEndpointVisibility();
 
       fetch_image_models?.addEventListener('click', async () => {
