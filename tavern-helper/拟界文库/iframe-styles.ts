@@ -580,7 +580,13 @@ function positionFloatingLauncher(position: FramePosition) {
   }
   const viewport = getViewportSize();
   const insets = getViewportInsets();
-  launcher.dataset.edge = position.x + BUBBLE_SIZE / 2 < insets.left + viewport.width / 2 ? 'left' : 'right';
+  if (position.x <= insets.left) {
+    launcher.dataset.edge = 'left';
+  } else if (position.x + BUBBLE_SIZE >= insets.left + viewport.width) {
+    launcher.dataset.edge = 'right';
+  } else {
+    delete launcher.dataset.edge;
+  }
   Object.assign(launcher.style, {
     position: 'fixed',
     zIndex: '99999',
