@@ -1,25 +1,14 @@
-# «LoreFrame»｜拟界文库
+# 拟界文库 / 线上功能脚本
 
-## 当前版本：1.7.4（2026-10-08）
+版本唯一来源为 `release.json`。在模板项目根目录执行 `pnpm release:loreframe` 生成带版本号的发布产物与校验清单，详见 [发布流程](./发布流程.md)。
 
-酒馆助手在线导入：
+## 柏宝绘接入
 
-```js
-import "https://cdn.jsdelivr.net/gh/colerith/LoreFrame@loreframe-v1.7.4/file/loreframe-1.7.4.js";
-```
+在「剧场生图 → NovelAI 预设配置」点击「读取柏宝绘配置」，可读取当前酒馆已保存的接口、密钥、模型、画幅、采样参数和当前画风。按来源更新导入槽位，保留手工槽位，不修改柏宝绘，不自动启用生图。
 
-- 新增柏宝绘 NovelAI 接口、画风参数与所选 Vibe 参考图的只读导入。
-- 支持自定义画幅、代理路径和匹配模型的 Vibe 编码复用。
-- 包含 TauriTavern 全屏面板尺寸修复，升级后可停用旧独立补丁。
-- 旧的 `index-1.7.2D.js` 等历史文件保留；请将旧导入链接替换为上面的新版本链接。
-- [版本清单与 SHA-256](file/loreframe-1.7.4.manifest.json) · [源码与使用说明](tavern-helper/拟界文库/README.md) · [发布流程](tavern-helper/拟界文库/发布流程.md)
-- ESLint、模拟接口回归与生产构建通过；未运行真实付费生图或酒馆真机验收。
+在 Vibe 库点击「读取柏宝绘参考图」，选择一项再导入。支持柏宝绘内联数据、当前酒馆 `/user/files/` 文件和本地 IndexedDB；导入后需从 Vibe 库加入当前组。匹配模型的编码直接复用，只有原图时按所选模型编码；只有不匹配编码时提示更换模型或原图，不默默丢弃参考。强度为 0 不发送。
 
-
-- 原作者：巴@mdma_v10d
-- 二改：电波系@colerith
-
----
+导入是本机配置快照；柏宝绘修改后需再次读取。不会把角色库外貌或全部参考图自动套到每张页面图片中。云端发布只包含源码和构建结果，不包含用户运行时密钥与图库。
 
 ## 功能介绍
 
@@ -39,7 +28,7 @@ import "https://cdn.jsdelivr.net/gh/colerith/LoreFrame@loreframe-v1.7.4/file/lor
 - 支持随机小剧场：
   - 可选择多个候选小剧场。
   - 可设置每次抽取数量。
-  - 可设置触发阈值；当前逻辑为 `roll >= probability` 时触发请求，否则跳过本次生成。
+  - 可设置触发概率；当前逻辑为 `roll < probability` 时触发请求，否则跳过本次生成。
 - 支持一次性小剧场：临时加入本次生成，不写入长期库。
 - 支持提示词预览，能查看本次请求会发送的 system / assistant / user 内容。
 
@@ -96,6 +85,9 @@ import "https://cdn.jsdelivr.net/gh/colerith/LoreFrame@loreframe-v1.7.4/file/lor
 ```text
 线上功能脚本/
 ├─ README.md                 # 当前说明文档
+├─ 发布流程.md               # 版本规则、构建、发布与验证流程
+├─ release.json              # 界面和发布产物共用的版本配置
+├─ baibai.ts                 # 柏宝绘只读配置与 Vibe 导入、NovelAI 地址规范化
 ├─ branding-globals.d.ts     # APP_TITLE 等拼装时注入的品牌常量声明
 ├─ index.ts                  # 打包入口；读取 raw 片段、拼接 IIFE、生成 inline sourcemap
 ├─ constants.ts              # 脚本 ID、存储 key、尺寸常量、全局运行状态
@@ -149,3 +141,35 @@ import "https://cdn.jsdelivr.net/gh/colerith/LoreFrame@loreframe-v1.7.4/file/lor
 - 来源采集结果。
 - API 请求摘要。
 - 解析、保存、重试和错误信息。
+
+## 维护约定
+
+- 本目录文件虽然都是普通 TypeScript，但运行时仍是“按顺序拼接后整体执行”。
+- 跨文件依赖依靠 `index.ts` 中 `onlineFeatureParts` 的顺序，不要随意调整。
+- 新增片段时：
+  1. 在本目录创建新的 `.ts` 文件。
+  2. 保持文件内容可作为顶层代码直接拼接。
+  3. 在 `index.ts` 中按依赖顺序导入 `?raw`。
+  4. 将片段加入 `onlineFeatureParts`。
+  5. 更新本 README 的文件树和职责说明。
+- 不要在片段里使用 Node.js API；脚本最终运行在浏览器环境。
+- 修改设置结构时，同步更新默认值、归一化函数、保存函数、渲染函数和事件绑定。
+- 修改存储结构时，保留旧 key 的迁移逻辑，避免用户已有页面丢失。
+- 修改 UI 模板时，检查 `ui-render.ts` 和 `ui-events.ts` 是否仍能查到对应 `data-*` 节点。
+
+## 常见排查
+
+- 看不到悬浮球：检查 `host-buttons.ts` 是否执行、宿主页面是否已有旧 iframe、`SCRIPT_ID` 对应 DOM 是否被其他脚本移除。
+- 没有自动生成：检查自动生成开关、排除角色/标签、随机小剧场概率、正文完成监听日志。
+- 没有发送 API：检查 `generateRaw` 是否存在、第二 API 是否启用且配置完整、提示词是否为空。
+- 页面没有保存：检查 IndexedDB 是否可用、localStorage 是否超限、运行日志是否出现保存异常。
+- 世界书内容不对：到「来源」页刷新，查看绑定世界书、条目纳入/排除状态和字数估算。
+- 面板美化不生效：确认已保存外观设置，并检查当前是日间还是夜间主题。
+
+## 构建验证
+
+修改后建议运行：
+
+```bash
+pnpm build
+```
