@@ -83,7 +83,7 @@ async function encodeNovelAiVibe(
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${preset.api_key}`,
+      Authorization: `Bearer ${preset.api_key.trim()}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
@@ -203,6 +203,7 @@ async function requestNovelAiImage(
   const seed = Number.isFinite(Number(preset.seed)) && Number(preset.seed) > 0
     ? Number(preset.seed)
     : Math.floor(Math.random() * 0x100000000);
+  const modern_model = /^nai-diffusion-[45](?:-|$)/i.test(preset.model.trim());
   const supports_vibe = !/^nai-diffusion-5(?:-|$)/i.test(preset.model.trim());
   if (!supports_vibe && vibe_references.length) {
     appendImageGenerationLog('跳过', 'NAI 5 不支持 Vibe，已忽略参考图并使用普通生图请求。');
@@ -244,18 +245,15 @@ async function requestNovelAiImage(
       negative_prompt: normalized_negative_prompt,
       ucPreset: 3,
       qualityToggle: true,
-      autoSmea: false,
-      sm: preset.smea,
-      sm_dyn: preset.smea_dyn,
-      decrisp: preset.decrisp,
+      ...(modern_model
+        ? { deliberate_euler_ancestral_bug: false, prefer_brownian: true }
+        : { autoSmea: false, sm: preset.smea, sm_dyn: preset.smea_dyn, decrisp: preset.decrisp }),
       dynamic_thresholding: false,
       skip_cfg_above_sigma: null,
-      controlnet_strength: 1,
+      ...(!modern_model ? { controlnet_strength: 1, inpaintImg2ImgStrength: 1, dyn_sampling: false } : {}),
       legacy: false,
       legacy_uc: false,
       add_original_image: true,
-      inpaintImg2ImgStrength: 1,
-      dyn_sampling: false,
       legacy_v3_extend: false,
       cfg_rescale: preset.prompt_guidance_rescale,
       use_coords: false,
@@ -269,8 +267,6 @@ async function requestNovelAiImage(
       v4_negative_prompt: {
         caption: { base_caption: normalized_negative_prompt, char_captions: [] },
         legacy_uc: false,
-        use_coords: false,
-        use_order: false,
       },
       ...(cached_vibes.length
         ? {
@@ -324,7 +320,7 @@ async function requestNovelAiImage(
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${preset.api_key}`,
+      Authorization: `Bearer ${preset.api_key.trim()}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(body),
@@ -339,7 +335,7 @@ async function requestNovelAiImage(
       body: raw_error_text.slice(0, 4000),
     });
     const error_text = raw_error_text.slice(0, 800);
-    throw new Error(`NovelAI 请求失败（${response.status}）：${error_text}`);
+    throw new Error(`NovelAI 生图 /ai/generate-image 请求失败（${response.status}）：${error_text}`);
   }
   appendImageGenerationLog('调试', 'NovelAI 响应成功', {
     status: response.status,

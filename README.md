@@ -1,13 +1,14 @@
 # «LoreFrame»｜拟界文库
 
-## 当前版本：1.7.9（2026-10-11）
+## 当前版本：1.7.10（2026-10-11）
 
 酒馆助手在线导入：
 
 ```js
-import "https://cdn.jsdelivr.net/gh/colerith/LoreFrame@loreframe-v1.7.9/file/loreframe-1.7.9.js";
+import "https://cdn.jsdelivr.net/gh/colerith/LoreFrame@loreframe-v1.7.10/file/loreframe-1.7.10.js";
 ```
 
+- NAI 4/5 请求结构对齐电波手机，移除旧模型参数并补全采样兼容字段；NAI 5 请求已与电波手机输出逐字段回归比较（除 Vibe）。
 - NAI 5 自动跳过 Vibe 编码，生图请求不发送 Vibe 参数；保留参考图配置供其他模型使用。
 - 修复悬浮球未贴边时悬停也会横向位移的问题，保留悬停变不透明与实际贴边效果。
 - 主题配色方案库：默认森系、电波手机蓝粉，支持日夜配色另存、覆盖、重命名与删除。
@@ -15,7 +16,7 @@ import "https://cdn.jsdelivr.net/gh/colerith/LoreFrame@loreframe-v1.7.9/file/lor
 - 页面保存后自动生成命中 API 的图片，CSS 分支不调用接口；已有页面点击生图按钮补跑。
 - 生图任务去重、逐张保存，失败重试跳过已完成图片；切换聊天、版本或编辑内容后停止旧结果写回。
 - 保留 Claude/Gemini Flash 尾部 user 消息、GPT Image、柏宝绘导入与面板尺寸修复。
-- [版本清单与 SHA-256](file/loreframe-1.7.9.manifest.json) · [使用说明](tavern-helper/拟界文库/README.md) · [发布流程](tavern-helper/拟界文库/发布流程.md)
+- [版本清单与 SHA-256](file/loreframe-1.7.10.manifest.json) · [使用说明](tavern-helper/拟界文库/README.md) · [发布流程](tavern-helper/拟界文库/发布流程.md)
 - 历史版本文件和标签保留，更新需替换在线导入链接。
 - ESLint、模拟接口及 DOM 回归、生产构建通过；未运行真实付费生图或酒馆真机验收。
 

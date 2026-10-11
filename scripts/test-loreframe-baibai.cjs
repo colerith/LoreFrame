@@ -72,6 +72,20 @@ for (const name of ['settings.ts', 'baibai.ts', 'ui-events.ts']) {
   assert.equal(calls.length, 1, 'matching cached encoding skips encode-vibe');
   const body = JSON.parse(calls[0].init.body);
   assert.equal(body.parameters.params_version, 4);
+  // Compare the actual shipped Electric Phone payload with equivalent settings.
+  const waveSource = fs.readFileSync('.wave-publish/Electric-Phone/tavern-helper/电波手机/services/image/generate.ts', 'utf8');
+  const waveContext = vm.createContext({ exports: {}, require: () => ({}), crypto,
+    imagePrompt: () => 'portrait' });
+  vm.runInContext(ts.transpileModule(waveSource.slice(waveSource.indexOf('export function novelAiBody'), waveSource.indexOf('export function bytesBase64')), {
+    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
+  }).outputText, waveContext);
+  const expected = waveContext.exports.novelAiBody({ model: preset.model, width: preset.width, height: preset.height,
+    scale: preset.prompt_guidance, steps: preset.steps, sampler: context.imageGenerationSamplerValue(preset.sampler),
+    noiseSchedule: preset.noise_schedule, cfgRescale: preset.prompt_guidance_rescale, seed: body.parameters.seed,
+    negative: 'text', normalizeRefStrength: false }, {}, 'portrait');
+  for (const key of Object.keys(expected.parameters)) if (key.includes('reference')) delete expected.parameters[key];
+  assert.deepEqual(body, JSON.parse(JSON.stringify(expected)), 'NAI 5 matches Electric Phone except omitted Vibe');
+
   assert.ok(!Object.keys(body.parameters).some(key => key.includes('reference')), 'NAI 5 omits all Vibe fields');
   for (const model of ['nai-diffusion-5', 'nai-diffusion-5-full', 'nai-diffusion-5-curated']) {
     calls = [];
