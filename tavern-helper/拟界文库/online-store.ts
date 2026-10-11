@@ -421,7 +421,9 @@ function writeOnlinePayloadRecord(
             saved_at: new Date().toISOString(),
             data: normalizeOnlineData(data),
           } satisfies OnlineIndexedPayloadRecord);
-          request.onsuccess = () => resolve(true);
+          transaction.oncomplete = () => resolve(true);
+          transaction.onabort = () => resolve(false);
+          transaction.onerror = () => resolve(false);
           request.onerror = () => resolve(false);
         } catch {
           resolve(false);
@@ -873,17 +875,15 @@ function createOnlineDataStorageSnapshot(data: OnlineData | OnlineDataInput | nu
   const active_entry_id = normalized_active_entry_id;
   const entries = normalized.entries.map(entry =>
     createOnlineEntryStorageSnapshot(entry, {
-      preserve_payload: !should_use_indexeddb || entry.id === normalized_active_entry_id,
+      preserve_payload: !should_use_indexeddb,
     }),
   );
   const active_entry = entries.find(entry => entry.id === active_entry_id) || entries.at(-1) || null;
   return normalizeOnlineSelectionMaps(
     normalizeOnlineData({
       ...normalized,
-      html: should_use_indexeddb ? String(active_entry?.html || normalized.html || '') : normalized.html,
-      memory_text: should_use_indexeddb
-        ? String(active_entry?.memory_text || normalized.memory_text || '')
-        : normalized.memory_text,
+      html: should_use_indexeddb ? '' : normalized.html,
+      memory_text: should_use_indexeddb ? '' : normalized.memory_text,
       raw_result: '',
       entries,
       active_entry_id,
@@ -926,10 +926,11 @@ function writeOnlineDataStore(store: OnlineDataStore, scope_info = getCurrentOnl
     const persisted = createOnlineDataStorageSnapshot(normalized);
     const write_ok = writeJsonStorage(getOnlineChatStorageKey(scope_info.scope_key, chat_id), persisted);
     succeeded = succeeded && write_ok;
-    if (supportsOnlinePayloadIndexedDb()) {
+    // Unhydrated metadata must never overwrite a complete IndexedDB record.
+    if (supportsOnlinePayloadIndexedDb() && (hasInlineOnlinePayload(normalized) || online_payload_cache.has(payload_key))) {
       void writeOnlinePayloadRecord(payload_key, scope_info.scope_key, chat_id, normalized).then(payload_saved => {
         if (!payload_saved) {
-          appendRunLog('缓存', 'IndexedDB 写入失败，已保留轻量快照，建议稍后手动清理并重试。', {
+          appendRunLog('缓存', 'IndexedDB 正文写入失败，正文仅保留在当前内存；请勿刷新，先导出备份。', {
             chat_id,
             payload_key,
           });
@@ -1221,22 +1222,9 @@ function saveOnlineData(data: OnlineDataInput | OnlineData): OnlineData {
     delete store[existing_chat_id];
   }
   store[chat_id] = normalized;
-  let write_succeeded = writeOnlineDataStore(store, scope_info);
+  const write_succeeded = writeOnlineDataStore(store, scope_info);
   if (!write_succeeded) {
-    const prune_result = pruneOnlineStorageForCurrentScope(Math.min(1, normalizeOnlineStorageLimitMb(getSettings().online_storage.limit_mb)));
-    store[chat_id] = normalized;
-    write_succeeded = writeOnlineDataStore(store, scope_info);
-    if (prune_result.removed_entries > 0) {
-      appendRunLog('缓存', '检测到浏览器存储配额不足，已尝试自动瘦身并清理旧页面。', {
-        removed_entries: prune_result.removed_entries,
-        removed_chats: prune_result.removed_chats,
-        freed_bytes: prune_result.freed_bytes,
-        usage: prune_result.usage,
-      });
-    }
-  }
-  if (!write_succeeded) {
-    throw Error('浏览器本地存储空间不足，页面已生成但暂时无法落盘。请先清理未收藏小剧场或降低缓存上限后重试。');
+    throw Error('localStorage 索引保存失败（与站点总配额不同）；未自动删除旧页面。当前正文已保留在内存，请勿刷新，先备份后重试。');
   }
   registerOnlineChatIndex(chat_id, normalized);
 
