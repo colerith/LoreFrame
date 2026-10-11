@@ -1105,6 +1105,7 @@ function renderOnlineContent(iframe_document: Document) {
     const image_generation_trigger = iframe_document.querySelector<HTMLElement>('[data-trigger-image-generation]');
     if (image_generation_trigger) {
       image_generation_trigger.hidden = !resolved_html.includes('data-image-asset');
+      syncImageGenerationButton(iframe_document);
     }
     if (resolved_html) {
       const normalized_html = normalizeImageAssetMarkup(resolved_html);

@@ -112,52 +112,22 @@ async function encodeNovelAiVibe(
   };
 }
 
+declare const loreFrameUnzipSync: typeof import('fflate').unzipSync;
+
 async function extractImageFromNovelAiZip(buffer: ArrayBuffer) {
-  const bytes = new Uint8Array(buffer);
-  const view = new DataView(buffer);
-  for (let offset = 0; offset + 30 <= bytes.length; offset += 1) {
-    if (view.getUint32(offset, true) !== 0x04034b50) {
-      continue;
-    }
-    const method = view.getUint16(offset + 8, true);
-    const compressed_size = view.getUint32(offset + 18, true);
-    const file_name_length = view.getUint16(offset + 26, true);
-    const extra_length = view.getUint16(offset + 28, true);
-    const data_start = offset + 30 + file_name_length + extra_length;
-    const data_end = data_start + compressed_size;
-    if (data_end > bytes.length) {
-      throw new Error('NovelAI ZIP 图片数据不完整。');
-    }
-    const file_name = new TextDecoder().decode(bytes.slice(offset + 30, offset + 30 + file_name_length));
-    if (!/\.(png|jpe?g|webp|avif)$/i.test(file_name)) {
-      offset = data_end - 1;
-      continue;
-    }
-    let image_bytes = bytes.slice(data_start, data_end);
-    if (method === 8) {
-      if (typeof DecompressionStream === 'undefined') {
-        throw new Error('当前浏览器不支持解压 NovelAI 图片响应。');
-      }
-      const stream = new Blob([image_bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
-      image_bytes = new Uint8Array(await new Response(stream).arrayBuffer());
-    } else if (method !== 0) {
-      throw new Error(`暂不支持 NovelAI ZIP 压缩方式：${method}`);
-    }
-    const mime = /\.jpe?g$/i.test(file_name)
-      ? 'image/jpeg'
-      : /\.webp$/i.test(file_name)
-        ? 'image/webp'
-        : /\.avif$/i.test(file_name)
-          ? 'image/avif'
-          : 'image/png';
-    let binary = '';
-    const chunk_size = 0x8000;
-    for (let index = 0; index < image_bytes.length; index += chunk_size) {
-      binary += String.fromCharCode(...image_bytes.subarray(index, Math.min(index + chunk_size, image_bytes.length)));
-    }
-    return `data:${mime};base64,${btoa(binary)}`;
+  let files: Record<string, Uint8Array>;
+  try {
+    files = loreFrameUnzipSync(new Uint8Array(buffer), {
+      filter: file => /\.(png|jpe?g|webp|avif)$/i.test(file.name) && file.originalSize <= 30 * 1024 * 1024,
+    });
+  } catch (error) {
+    throw new Error(`NovelAI ZIP 解压失败（已收到 ${buffer.byteLength} 字节）：${error instanceof Error ? error.message : String(error)}`);
   }
-  throw new Error('NovelAI 响应中没有找到图片文件。');
+  const entry = Object.entries(files).find(([name, bytes]) => /\.(png|jpe?g|webp|avif)$/i.test(name) && bytes.length);
+  if (!entry) throw new Error('NovelAI ZIP 中没有可用图片（单张上限 30MB）。');
+  const [name, bytes] = entry;
+  const mime = /\.jpe?g$/i.test(name) ? 'image/jpeg' : /\.webp$/i.test(name) ? 'image/webp' : /\.avif$/i.test(name) ? 'image/avif' : 'image/png';
+  return `data:${mime};base64,${bytesToBase64(bytes)}`;
 }
 
 async function readImageGenerationResponse(response: Response) {
@@ -171,7 +141,13 @@ async function readImageGenerationResponse(response: Response) {
       reader.readAsDataURL(blob);
     });
   }
-  const buffer = await response.arrayBuffer();
+  let buffer: ArrayBuffer;
+  try {
+    buffer = await response.arrayBuffer();
+  } catch (error) {
+    throw new Error(`NovelAI 已返回 HTTP ${response.status}，但图片正文读取失败（传输中断，尚未解压）：${error instanceof Error ? error.message : String(error)}`);
+  }
+  appendImageGenerationLog('调试', '图片响应正文读取完成', { bytes: buffer.byteLength, content_type });
   if (content_type.includes('zip') || new Uint8Array(buffer).slice(0, 2)[0] === 0x50) {
     return extractImageFromNovelAiZip(buffer);
   }
@@ -337,7 +313,7 @@ async function requestNovelAiImage(
     const error_text = raw_error_text.slice(0, 800);
     throw new Error(`NovelAI 生图 /ai/generate-image 请求失败（${response.status}）：${error_text}`);
   }
-  appendImageGenerationLog('调试', 'NovelAI 响应成功', {
+  appendImageGenerationLog('调试', 'NovelAI 已收到响应头（图片正文待读取）', {
     status: response.status,
     content_type: response.headers.get('content-type') || '',
     content_length: response.headers.get('content-length') || '',

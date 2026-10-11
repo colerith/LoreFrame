@@ -1,3 +1,4 @@
+import { unzipSync } from 'fflate';
 import constantsSource from './constants?raw';
 import stateSource from './state?raw';
 import typesSource from './types?raw';
@@ -144,5 +145,6 @@ function buildInlineSourceMap(parts: readonly (readonly [string, string])[]): st
 // 仍保持单文件脚本的运行语义，但给拼装后的脚本补一份行级 sourcemap。
 // 这样 DevTools 里不再只看到 assembled.js，也能定位到拆分后的片段文件。
 new Function(
+  'loreFrameUnzipSync',
   `${onlineFeatureScript}\n//# sourceMappingURL=${buildInlineSourceMap(onlineFeatureParts)}\n//# sourceURL=src/util/酒馆助手脚本/线上功能脚本/assembled.js`,
-)();
+)(unzipSync);

@@ -8,6 +8,7 @@ const st = { extensionSettings: {} };
 let calls = [];
 const context = vm.createContext({
   console,
+  loreFrameUnzipSync: require('fflate').unzipSync,
   URL,
   Response,
   Uint8Array,
@@ -36,6 +37,18 @@ for (const name of ['settings.ts', 'baibai.ts', 'ui-events.ts']) {
   );
 }
 (async () => {
+  const { zipSync, Zip, ZipDeflate } = require('fflate');
+  const pixels = new Uint8Array([137,80,78,71,1,2,3]);
+  for (const level of [0, 6]) {
+    const zip = zipSync({'image.png': pixels}, {level});
+    assert.equal(await context.readImageGenerationResponse(new Response(zip, {headers:{'content-type':'binary/octet-stream'}})), 'data:image/png;base64,'+Buffer.from(pixels).toString('base64'));
+  }
+  const chunks=[];
+  const archive=new Zip((error, data) => {if(error) throw error;chunks.push(Buffer.from(data));});
+  const file=new ZipDeflate('nested/image.png');archive.add(file);file.push(pixels,true);archive.end();
+  assert.equal(await context.readImageGenerationResponse(new Response(Buffer.concat(chunks))), 'data:image/png;base64,'+Buffer.from(pixels).toString('base64'));
+  await assert.rejects(context.readImageGenerationResponse({status:200,headers:new Headers(),arrayBuffer:async()=>{throw new TypeError('Failed to fetch');}}), /正文读取失败.*尚未解压/);
+  await assert.rejects(context.extractImageFromNovelAiZip(new Uint8Array([80,75]).buffer), /ZIP 解压失败/);
   const settings = {
     nai: {
       model: 'nai-diffusion-5-full',

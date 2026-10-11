@@ -1,4 +1,21 @@
 const active_image_jobs = new Set<string>();
+const image_job_feedback = new Map<string, { label: string; detail: string }>();
+
+function syncImageGenerationButton(iframe_document: Document) {
+  const button = iframe_document.querySelector<HTMLButtonElement>('[data-trigger-image-generation]');
+  if (!button) return;
+  const entry = getCurrentOnlineData().active_entry;
+  const variant = getEntryActiveVariant(entry);
+  const key = JSON.stringify([getCurrentOnlineScopeInfo().scope_key, getCurrentChatStorageLabel(), entry?.id, variant?.id]);
+  const feedback = image_job_feedback.get(key);
+  const busy = active_image_jobs.has(key);
+  button.disabled = busy;
+  button.setAttribute('aria-busy', String(busy));
+  button.title = feedback?.detail || '生成当前页面尚未完成的图片；按当前接口与概率设置执行';
+  const label = button.querySelector('span');
+  if (label) { label.textContent = feedback?.label || '生成图片'; label.setAttribute('aria-live', 'polite'); }
+}
+
 
 async function generateOnlineImages(iframe_document: Document, automatic = false) {
   const online_data = getCurrentOnlineData();
@@ -57,6 +74,12 @@ async function generateOnlineImages(iframe_document: Document, automatic = false
     return;
   }
   active_image_jobs.add(job_key);
+  const feedback = (label: string, detail: string) => {
+    image_job_feedback.set(job_key, { label, detail });
+    syncImageGenerationButton(iframe_document);
+  };
+  feedback(`正在生成 0/${images.length}`, '请求处理中，请勿重复点击；图片生成可能需要几分钟。');
+  if (!automatic) showInlineToast(iframe_document, `开始生成 ${images.length} 张图片，请稍候；已完成图片不会重复生成。`);
   appendImageGenerationLog('请求', `开始生成 ${images.length} 张图片`, {
     provider: image_settings.mode,
     model: image_settings.mode === 'gpt_image' ? image_settings.gpt_image.model : active_preset!.model,
@@ -96,17 +119,22 @@ async function generateOnlineImages(iframe_document: Document, automatic = false
       expected_html = next_html;
       renderOnlineContent(iframe_document);
       success_count += 1;
+      feedback(`正在生成 ${success_count}/${images.length}`, '已完成图片已保存，正在处理剩余图片。');
       appendImageGenerationLog('成功', `第 ${index + 1}/${images.length} 张图片生成完成`, {
         response: '图片已解析并写回 HTML。',
       });
     }
+    feedback(`已完成 ${success_count}/${images.length}`, '本次图片已生成并保存。');
     appendImageGenerationLog('完成', `生图完成：${success_count}/${images.length}`);
     renderOnlineContent(iframe_document);
     showInlineToast(iframe_document, `已生成 ${success_count}/${images.length} 张图片。`);
   } catch (error) {
+    feedback('重试未完成图片', `已完成 ${success_count}/${images.length}；${error instanceof Error ? error.message : String(error)}`);
     appendImageGenerationLog('错误', `生图失败：已完成 ${success_count}/${images.length}`, error);
     showInlineToast(iframe_document, `生图失败：${error instanceof Error ? error.message : String(error)}`);
   } finally {
     active_image_jobs.delete(job_key);
+    if (image_job_feedback.get(job_key)?.label.startsWith('正在生成')) image_job_feedback.delete(job_key);
+    syncImageGenerationButton(iframe_document);
   }
 }
