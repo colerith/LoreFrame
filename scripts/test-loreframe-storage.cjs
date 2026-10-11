@@ -1,10 +1,10 @@
 const fs=require('fs'),vm=require('vm'),ts=require('typescript'),assert=require('assert/strict');
 const file='src/util/酒馆助手脚本/线上功能脚本/online-store.ts';
 const source=fs.readFileSync(file,'utf8');const ast=ts.createSourceFile(file,source,ts.ScriptTarget.Latest,true);
-const names=['createOnlineDataStorageSnapshot','createOnlineEntryStorageSnapshot','createOnlineVariantStorageSnapshot','createOnlineVariantMetaSnapshot','saveOnlineData','writeOnlinePayloadRecord','readOnlinePayloadRecord'];
+const names=['createOnlineDataStorageSnapshot','createOnlineEntryStorageSnapshot','createOnlineVariantStorageSnapshot','createOnlineVariantMetaSnapshot','saveOnlineData','writeOnlinePayloadRecord','readOnlinePayloadRecord','recoverMissingOnlineSnapshot'];
 const code=ast.statements.filter(n=>ts.isFunctionDeclaration(n)&&names.includes(n.name.text)).map(n=>n.getText(ast)).join('\n');
 let indexed=true,pruned=false,transaction;
-const context=vm.createContext({console,Map,Date,
+const context=vm.createContext({console,Map,Date,online_missing_snapshot_pending:new Set(),online_missing_snapshot_attempted:new Set(),current_iframe_document:null,appendRunLog:()=>{},
  supportsOnlinePayloadIndexedDb:()=>indexed, normalizeOnlineData:x=>x,normalizeOnlineSelectionMaps:x=>x,
  createOnlineVariant:x=>x||{},getOnlineEntryKey:x=>'entry-'+x,getCurrentOnlineScopeInfo:()=>({scope_key:'scope'}),getCurrentChatStorageId:()=> 'chat',getOnlinePayloadStorageKey:()=> 'payload',
  getCurrentChatStorageIdentity:()=>({storage_id:'chat',aliases:[]}),attachCurrentOnlineScope:x=>x,readOnlineDataStore:()=>({}),findStoredChatKeyForCurrentChat:()=>null,writeOnlineDataStore:()=>false,pruneOnlineStorageForCurrentScope:()=>{pruned=true;},
@@ -30,5 +30,7 @@ assert.throws(()=>context.saveOnlineData(data),/未自动删除/);assert.equal(p
  transaction={objectStore:()=>({put:()=>({})})};const saved=context.writeOnlinePayloadRecord('key','scope','chat',data);await Promise.resolve();transaction.oncomplete();assert.equal(await saved,true);
  const readRequest={result:{data}};transaction={objectStore:()=>({get:()=>readRequest})};const legacy=context.readOnlinePayloadRecord('key');await Promise.resolve();readRequest.onsuccess();assert.equal((await legacy).data,data);
  readRequest.result={packed_data:packed};const modern=context.readOnlinePayloadRecord('key');await Promise.resolve();readRequest.onsuccess();assert.deepEqual(JSON.parse(JSON.stringify((await modern).data)),data);
+ let restored;indexed=true;context.readOnlinePayloadRecord=async()=>({data});context.readOnlineChatIndexForScopeKey=()=>[{chat_id:'chat'}];context.getOnlineChatStorageKey=()=> 'shell';context.readJsonStorage=()=>null;context.writeJsonStorage=(_,value)=>{restored=value;return true;};
+ context.recoverMissingOnlineSnapshot('scope','chat');for(let n=0;n<8;n++)await Promise.resolve();assert.equal(restored.entries.length,1);assert.equal(restored.html,'');assert.equal(context.online_missing_snapshot_pending.size,0);assert.equal(context.online_payload_cache.get('payload').html,html);
  console.log('PASS metadata-only snapshot, inline fallback, no quota pruning, IDB commit/abort');
 })().catch(e=>{console.error(e);process.exitCode=1;});

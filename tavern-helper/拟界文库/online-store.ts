@@ -773,6 +773,29 @@ function migrateLegacyOnlineStoreIfNeeded() {
   clearLegacyOnlineDataStore();
 }
 
+const online_missing_snapshot_pending = new Set<string>();
+const online_missing_snapshot_attempted = new Set<string>();
+function recoverMissingOnlineSnapshot(scope_key: string, chat_id: string) {
+  const payload_key = getOnlinePayloadStorageKey(scope_key, chat_id);
+  if (online_missing_snapshot_attempted.has(payload_key)) return;
+  online_missing_snapshot_attempted.add(payload_key);
+  online_missing_snapshot_pending.add(payload_key);
+  let restored = false;
+  void readOnlinePayloadRecord(payload_key).then(record => {
+    if (!record?.data || !readOnlineChatIndexForScopeKey(scope_key).some(item => item.chat_id === chat_id)) return;
+    const key = getOnlineChatStorageKey(scope_key, chat_id);
+    if (readJsonStorage(key, null)) return;
+    const data = normalizeOnlineData({ ...record.data, payload_key, payload_storage: 'indexeddb' });
+    if (!writeJsonStorage(key, createOnlineDataStorageSnapshot(data))) return;
+    online_payload_cache.set(payload_key, data);
+    restored = true;
+    appendRunLog('缓存', '已从 IndexedDB 找回缺失的聊天索引，正文未修改。', { entries: data.entries.length });
+  }).catch(error => appendRunLog('缓存', '缺失索引恢复失败，原正文保留。', error)).finally(() => {
+    online_missing_snapshot_pending.delete(payload_key);
+    if (restored && current_iframe_document) renderOnlineContent(current_iframe_document);
+  });
+}
+
 function readOnlineDataStore(scope_info = getCurrentOnlineScopeInfo()): OnlineDataStore {
   migrateLegacyOnlineStoreIfNeeded();
   const store: OnlineDataStore = {};
@@ -784,6 +807,7 @@ function readOnlineDataStore(scope_info = getCurrentOnlineScopeInfo()): OnlineDa
       }
       const data = readJsonStorage<OnlineData | OnlineDataInput | null>(getOnlineChatStorageKey(scope_key, chat_id), null);
       if (!data || typeof data !== 'object') {
+        recoverMissingOnlineSnapshot(scope_key, chat_id);
         return;
       }
       const payload_key = String(data.payload_key || getOnlinePayloadStorageKey(scope_key, chat_id));
@@ -917,6 +941,7 @@ function createOnlineDataStorageSnapshot(data: OnlineData | OnlineDataInput | nu
 }
 
 function writeOnlineDataStore(store: OnlineDataStore, scope_info = getCurrentOnlineScopeInfo()) {
+  if (online_missing_snapshot_pending.size) return false;
   const next_store = store && typeof store === 'object' ? store : {};
   const previous_chat_locations = new Map<string, Set<string>>();
   getOnlineScopeReadKeys(scope_info).forEach(scope_key => {
