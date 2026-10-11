@@ -72,14 +72,29 @@ for (const name of ['settings.ts', 'baibai.ts', 'ui-events.ts']) {
   assert.equal(calls.length, 1, 'matching cached encoding skips encode-vibe');
   const body = JSON.parse(calls[0].init.body);
   assert.equal(body.parameters.params_version, 4);
-  assert.equal(body.parameters.reference_image_multiple_cached[0].data, 'fixture-encoding');
+  assert.ok(!Object.keys(body.parameters).some(key => key.includes('reference')), 'NAI 5 omits all Vibe fields');
+  for (const model of ['nai-diffusion-5', 'nai-diffusion-5-full', 'nai-diffusion-5-curated']) {
+    calls = [];
+    const references = Array.from({length: 9}, () => ({...vibe, image_data: 'data:image/png;base64,cGl4ZWw=', encodings: {}}));
+    const before = JSON.stringify(references);
+    await context.requestNovelAiImage({...preset, model}, 'p', '', references);
+    assert.equal(calls.length, 1, 'NAI 5 skips encoding and Vibe validation');
+    assert.ok(calls[0].url.endsWith('/ai/generate-image'));
+    assert.ok(!Object.keys(JSON.parse(calls[0].init.body).parameters).some(key => key.includes('reference')));
+    assert.equal(JSON.stringify(references), before);
+  }
+  calls = [];
+  const compatible = {...preset, model: 'nai-diffusion-4-5-full'};
+  await context.requestNovelAiImage(compatible, 'p', '', [{...vibe, encodings: {'v4-5full': {encoding: 'fixture-encoding'}}}]);
+  assert.equal(calls.length, 1);
+  assert.equal(JSON.parse(calls[0].init.body).parameters.reference_image_multiple_cached[0].data, 'fixture-encoding');
   calls = [];
   await assert.rejects(
     context.requestNovelAiImage({ ...preset, model: 'nai-diffusion-4-5-full' }, 'p', '', [vibe]),
     /编码或原图/,
   );
   assert.equal(calls.length, 0);
-  await context.requestNovelAiImage(preset, 'p', '', [{ ...vibe, strength: 0 }]);
+  await context.requestNovelAiImage(compatible, 'p', '', [{ ...vibe, strength: 0 }]);
   assert.equal(JSON.parse(calls[0].init.body).parameters.reference_image_multiple_cached.length, 0);
   st.extensionSettings.baibai_image.nai.vibes = [{ id: 'remote', dataPath: 'https://other.example/user/files/v.json' }];
   await assert.rejects(context.readLoreFrameBaibaiVibe('remote'), /当前酒馆/);

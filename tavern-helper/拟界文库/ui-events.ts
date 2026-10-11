@@ -203,7 +203,11 @@ async function requestNovelAiImage(
   const seed = Number.isFinite(Number(preset.seed)) && Number(preset.seed) > 0
     ? Number(preset.seed)
     : Math.floor(Math.random() * 0x100000000);
-  const usable_vibes = vibe_references
+  const supports_vibe = !/^nai-diffusion-5(?:-|$)/i.test(preset.model.trim());
+  if (!supports_vibe && vibe_references.length) {
+    appendImageGenerationLog('跳过', 'NAI 5 不支持 Vibe，已忽略参考图并使用普通生图请求。');
+  }
+  const usable_vibes = (supports_vibe ? vibe_references : [])
     .map(reference => ({
       data: imageDataToBase64(reference.image_data),
       encoding: reference.encodings?.[preset.model.replace('nai-diffusion-', 'v').replace('-curated', 'curated').replace('-full', 'full')]?.encoding,
@@ -255,7 +259,7 @@ async function requestNovelAiImage(
       legacy_v3_extend: false,
       cfg_rescale: preset.prompt_guidance_rescale,
       use_coords: false,
-      reference_image_multiple_cached: cached_vibes,
+      ...(supports_vibe ? { reference_image_multiple_cached: cached_vibes } : {}),
       characterPrompts: [],
       v4_prompt: {
         caption: { base_caption: normalized_prompt, char_captions: [] },
