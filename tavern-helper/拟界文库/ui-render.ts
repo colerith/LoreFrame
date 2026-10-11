@@ -9,7 +9,6 @@ type OnlinePreviewRuntime = {
   mutation_observer?: MutationObserver | null;
   resize_observer?: ResizeObserver | null;
   sync?: (() => void) | null;
-  image_message_cleanup?: (() => void) | null;
 };
 
 function getVibePreviewSource(image_data: unknown) {
@@ -39,10 +38,6 @@ function normalizeImageAssetMarkup(html: string) {
     if (!generated) {
       image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="960" height="640" viewBox="0 0 960 640"><rect width="960" height="640" fill="#edf2ef"/><g transform="translate(432 272)" fill="none" stroke="#789087" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="88" height="88" rx="12"/><circle cx="32" cy="31" r="8"/><path d="M6 73 34 49 53 66 69 48 92 73"/></g></svg>')}`;
     }
-    image.style.cursor = 'zoom-in';
-    image.setAttribute('tabindex', '0');
-    image.setAttribute('role', 'button');
-    image.setAttribute('aria-label', generated ? '打开图片查看与编辑' : '打开图片设置与生成');
     if (generated) {
       asset.querySelectorAll('[data-image-generation-status]').forEach(status => status.remove());
       return;
@@ -55,9 +50,9 @@ function normalizeImageAssetMarkup(html: string) {
       asset.appendChild(status);
     }
   });
-  const bridge = document.createElement('script');
-  bridge.textContent = `(function(){function open(e){if(e.type==='keydown'&&!['Enter',' '].includes(e.key))return;var img=e.target.closest&&e.target.closest('[data-image-asset] img');if(!img)return;var asset=img.closest('[data-image-asset]');if(asset.dataset.imageRenderMode==='css')return;e.preventDefault();e.stopPropagation();parent.postMessage({type:'loreframe:image-open',index:Array.from(document.querySelectorAll('[data-image-asset]')).indexOf(asset)},'*');}document.addEventListener('click',open,true);document.addEventListener('keydown',open,true);})();`;
-  document.body.appendChild(bridge);
+  const scrollbar_style = document.createElement('style');
+  scrollbar_style.textContent = '* { scrollbar-width: none !important; } *::-webkit-scrollbar { display:none !important; width:0 !important; height:0 !important; }';
+  document.head.appendChild(scrollbar_style);
   return `<!doctype html>\n${document.documentElement.outerHTML}`;
 }
 
@@ -71,8 +66,6 @@ function getOnlinePreviewRuntime(preview: HTMLIFrameElement): OnlinePreviewRunti
 
 function cleanupOnlinePreviewRuntime(preview: HTMLIFrameElement) {
   const runtime = getOnlinePreviewRuntime(preview);
-  runtime.image_message_cleanup?.();
-  runtime.image_message_cleanup = null;
   runtime.mutation_observer?.disconnect?.();
   runtime.resize_observer?.disconnect?.();
   runtime.mutation_observer = null;
@@ -108,15 +101,6 @@ function bindOnlinePreviewShell(preview: HTMLIFrameElement) {
   const runtime = getOnlinePreviewRuntime(preview);
   const sync = () => syncOnlinePreviewShell(preview);
   runtime.sync = sync;
-  const parent_window = preview.ownerDocument.defaultView;
-  const on_image_message = (event: MessageEvent) => {
-    if (event.source !== preview.contentWindow || event.data?.type !== 'loreframe:image-open') return;
-    const index = event.data.index;
-    if (Number.isInteger(index) && index >= 0) openLoreFrameImageViewer(preview.ownerDocument, index);
-  };
-  parent_window?.addEventListener('message', on_image_message);
-  runtime.image_message_cleanup = () => parent_window?.removeEventListener('message', on_image_message);
-
   preview.addEventListener(
     'load',
     () => {

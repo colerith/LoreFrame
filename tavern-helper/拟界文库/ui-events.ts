@@ -3606,7 +3606,9 @@ const syncImageGenerationSettings = (show_detail = false) => {
       });
 
       trigger_image_generation?.addEventListener('click', () => {
-        void generateOnlineImages(iframe_document);
+        const controls = iframe_document.querySelector('[data-loreframe-image-controls]');
+        if (controls) controls.remove();
+        else openLoreFrameImageControls(iframe_document);
       });
 
       save_all_settings?.addEventListener('click', () => {

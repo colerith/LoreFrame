@@ -42,8 +42,8 @@ function recordLoreFrameImageVersion(image: HTMLImageElement, src: string) {
   image.dataset.imageVersions = JSON.stringify(versions);
   image.dataset.imageVersionId = version.id;
 }
-function openLoreFrameImageViewer(owner: Document, asset_index: number) {
-  owner.querySelector('[data-loreframe-image-viewer]')?.remove();
+function openLoreFrameImageControls(owner: Document, asset_index = 0) {
+  owner.querySelector('[data-loreframe-image-controls]')?.remove();
   const entry = getCurrentOnlineData().active_entry;
   const variant = getEntryActiveVariant(entry);
   if (!entry || !variant) return;
@@ -60,16 +60,24 @@ function openLoreFrameImageViewer(owner: Document, asset_index: number) {
     picture.dataset.imagePrompt = asset.dataset.imagePrompt || '';
     asset.prepend(picture);
   }
-  const dialog = owner.createElement('dialog');
-  dialog.dataset.loreframeImageViewer = 'true';
-  dialog.setAttribute('aria-label', '图片查看与编辑');
-  dialog.style.cssText =
-    'padding:0;border:1px solid #526078;border-radius:20px;width:min(940px,94vw);max-width:94vw;height:90vh;max-height:90vh;background:#10151e;color:#eef2f8;overflow:hidden;';
-  dialog.innerHTML = `<style>[data-loreframe-image-viewer]::backdrop{background:#000a}[data-loreframe-image-viewer] button,[data-loreframe-image-viewer] select{font:inherit;color:inherit;background:#263143;border:1px solid #53627a;border-radius:10px;padding:10px;cursor:pointer;min-width:40px;min-height:40px}[data-loreframe-image-viewer] button:disabled{opacity:.45;cursor:wait}[data-loreframe-image-viewer] select{max-width:100%}[data-loreframe-image-viewer] textarea{box-sizing:border-box;width:100%;color:inherit;background:#172130;border:1px solid #53627a;border-radius:8px;padding:10px;font:inherit}[data-loreframe-image-viewer] [data-toolbar]{display:flex;gap:6px;flex-wrap:wrap;padding:10px}[data-loreframe-image-viewer] [data-stage]{flex:1;min-height:0;overflow:auto;text-align:center;touch-action:pan-x pan-y}[data-loreframe-image-viewer] [data-stage] img{max-width:100%;height:100%;object-fit:contain}[data-loreframe-image-viewer] [data-stage].zoomed img{max-width:none;height:auto;min-width:100%}[data-loreframe-image-viewer] [data-panel]{overflow:auto;padding:16px;max-height:50vh}[data-loreframe-image-viewer] [data-panel] label{display:block;margin:8px 0}[data-loreframe-image-viewer] [data-status]{padding:6px 14px;color:#b5c9e6}</style><div style="height:100%;display:flex;flex-direction:column"><div data-toolbar role="toolbar" aria-label="图片操作"></div><div data-stage><p data-empty style="padding:40px;color:#a5b5cd">▧<br>暂无图片，可编辑提示词后生成</p><img alt="图片预览" draggable="false"></div><div data-caption style="padding:10px 16px;white-space:pre-wrap"></div><div data-status role="status" aria-live="polite"></div><div data-panel hidden></div></div>`;
-  owner.body.append(dialog);
+  const dialog = owner.createElement('section');
+  dialog.dataset.loreframeImageControls = 'true';
+  dialog.setAttribute('aria-label', '图片生成与编辑');
+  dialog.dataset.jobKey = job_key;
+  dialog.style.cssText = 'box-sizing:border-box;width:100%;min-width:0;flex:none;border:1px solid var(--panel-border,#526078);border-radius:12px;background:var(--panel-bg,#18212e);color:var(--panel-text,#eef2f8);padding:10px;margin-bottom:10px;';
+  dialog.innerHTML = `<style>[data-loreframe-image-controls] button,[data-loreframe-image-controls] select{font:inherit;color:inherit;background:var(--panel-bg-soft,#263143);border:1px solid var(--panel-border,#53627a);border-radius:8px;padding:8px;min-height:36px;cursor:pointer;max-width:100%}[data-loreframe-image-controls] button:disabled{opacity:.45;cursor:wait}[data-loreframe-image-controls] textarea{box-sizing:border-box;width:100%;color:inherit;background:var(--panel-bg-soft,#172130);border:1px solid var(--panel-border,#53627a);border-radius:8px;padding:10px;font:inherit}[data-loreframe-image-controls] [data-toolbar]{display:flex;gap:6px;flex-wrap:wrap;padding:8px 0}[data-loreframe-image-controls] [data-panel]{max-height:40vh;overflow:auto;padding:8px 0}[data-loreframe-image-controls] label{display:block;margin:8px 0}[data-loreframe-image-controls] [data-status]{padding:6px 0;overflow-wrap:anywhere}</style><strong>图片生成与编辑</strong><label>选择图片 <select data-image-select aria-label="选择图片"></select></label><div data-toolbar role="toolbar" aria-label="图片操作"></div><div data-caption></div><div data-status role="status" aria-live="polite"></div><div data-panel hidden></div>`;
+  const shell = owner.querySelector('.online-preview-shell');
+  if (!shell) return;
+  shell.before(dialog);
+  const select = dialog.querySelector<HTMLSelectElement>('[data-image-select]')!;
+  parsed.querySelectorAll<HTMLElement>('[data-image-asset]').forEach((item, index) => {
+    const option = owner.createElement('option'); option.value = String(index);
+    option.textContent = `图片 ${index + 1}${item.dataset.imageRenderMode === 'css' ? ' · CSS 绘画' : ''}`;
+    select.append(option);
+  });
+  select.value = String(asset_index);
+  select.addEventListener('change', () => openLoreFrameImageControls(owner, Number(select.value)));
   const toolbar = dialog.querySelector<HTMLElement>('[data-toolbar]')!;
-  const stage = dialog.querySelector<HTMLElement>('[data-stage]')!;
-  const preview = stage.querySelector('img')!;
   const panel = dialog.querySelector<HTMLElement>('[data-panel]')!;
   const status = dialog.querySelector<HTMLElement>('[data-status]')!;
   let busy = false;
@@ -88,15 +96,6 @@ function openLoreFrameImageViewer(owner: Document, asset_index: number) {
     if (active_image_jobs.has(job_key)) throw Error('当前页面正在生图，请等待完成后编辑。');
   };
   const refresh = () => {
-    const src = picture!.getAttribute('src') || '';
-    stage.querySelector<HTMLElement>('[data-empty]')!.hidden = Boolean(src && !src.startsWith('data:image/svg+xml'));
-    if (src && !src.startsWith('data:image/svg+xml')) {
-      preview.src = src;
-      preview.hidden = false;
-    } else {
-      preview.removeAttribute('src');
-      preview.hidden = true;
-    }
     dialog.querySelector<HTMLElement>('[data-caption]')!.textContent = picture!.dataset.imageCaption || '';
   };
   const save = () => {
@@ -109,10 +108,8 @@ function openLoreFrameImageViewer(owner: Document, asset_index: number) {
     status.textContent = '修改已保存。';
   };
   const close = () => {
-    dialog.close();
     dialog.remove();
   };
-  dialog.addEventListener('close', () => dialog.remove());
   const action = (label: string, icon: string, run: () => void | Promise<void>, mutable = false) => {
     const button = owner.createElement('button');
     button.type = 'button';
@@ -129,6 +126,7 @@ function openLoreFrameImageViewer(owner: Document, asset_index: number) {
       xmark: '<path d="m6 6 12 12M18 6 6 18"/>',
     };
     button.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[icon] || paths.pen}</svg>`;
+    button.append(owner.createTextNode(label));
     button.addEventListener('click', async () => {
       if (busy && mutable) return;
       try {
@@ -162,7 +160,7 @@ function openLoreFrameImageViewer(owner: Document, asset_index: number) {
     const heading = owner.createElement('h3');
     heading.textContent = title;
     panel.append(heading);
-    panelButton('返回大图', () => { panel.hidden = true; });
+    panelButton('返回操作', () => { panel.hidden = true; });
   };
   const regenerate = async () => {
     ensure();
@@ -191,12 +189,9 @@ function openLoreFrameImageViewer(owner: Document, asset_index: number) {
       toolbar.querySelectorAll<HTMLButtonElement>('[data-mutable]').forEach(button => (button.disabled = false));
     }
   };
-  action('放大 / 适应窗口', 'expand', () => {
-    stage.classList.toggle('zoomed');
-  });
-  stage.addEventListener('dblclick', () => stage.classList.toggle('zoomed'));
+  action('生成本页未完成图片', 'rotate-right', async () => { close(); await generateOnlineImages(owner); }, true);
   action(
-    '重新生成图片',
+    '生成 / 重生成此图',
     'rotate-right',
     () => {
       showPanel('重新生成图片');
@@ -337,7 +332,7 @@ function openLoreFrameImageViewer(owner: Document, asset_index: number) {
     },
     true,
   );
-  action('关闭大图', 'xmark', close);
+  action('收起图片操作', 'xmark', close);
   refresh();
-  dialog.showModal();
+  dialog.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
 }

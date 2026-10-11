@@ -7,6 +7,8 @@ function syncImageGenerationButton(iframe_document: Document) {
   const entry = getCurrentOnlineData().active_entry;
   const variant = getEntryActiveVariant(entry);
   const key = JSON.stringify([getCurrentOnlineScopeInfo().scope_key, getCurrentChatStorageLabel(), entry?.id, variant?.id]);
+  const controls = iframe_document.querySelector<HTMLElement>('[data-loreframe-image-controls]');
+  if (controls && controls.dataset.jobKey !== key) controls.remove();
   const feedback = image_job_feedback.get(key);
   const busy = active_image_jobs.has(key);
   button.disabled = busy;

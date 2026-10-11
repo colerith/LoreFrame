@@ -4675,6 +4675,7 @@ function buildIframeHtml() {
               border-radius: 0;
               padding-bottom: var(--safe-bottom-final);
             }
+          * { scrollbar-width: none !important; } *::-webkit-scrollbar { display:none !important; width:0 !important; height:0 !important; }
           </style>
         </head>
         <body>
