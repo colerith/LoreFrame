@@ -593,6 +593,9 @@ async function generateOnlineForCurrentChat(
     }
     renderOnlineContent(iframe_document);
     switchMainView(iframe_document, 'online');
+    void generateOnlineImages(iframe_document, true).catch(error => {
+      appendImageGenerationLog('错误', '自动生图启动失败，可点击生成图片重试', error);
+    });
   } catch (error) {
     setOnlineStatus(iframe_document, '生成失败', formatErrorForDisplay(error));
     markGenerationFinished(iframe_document, 'error', '生成失败', formatErrorForDisplay(error));

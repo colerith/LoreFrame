@@ -3629,87 +3629,8 @@ const syncImageGenerationSettings = (show_detail = false) => {
         renderImageGenerationLog(iframe_document);
       });
 
-      trigger_image_generation?.addEventListener('click', async () => {
-        const online_data = getCurrentOnlineData();
-        const active_entry = online_data.active_entry;
-        const active_variant = getEntryActiveVariant(active_entry);
-        const source_html = String(active_entry?.html || active_variant?.html || online_data.html || '');
-        const image_settings = normalizeImageGenerationSettings(getSettings().image_generation);
-        const active_preset = image_settings.presets.find(preset => preset.id === image_settings.active_preset_id);
-        const active_vibe_group = image_settings.vibe_groups.find(group => group.id === image_settings.active_vibe_group_id);
-        const active_vibe_references = active_vibe_group?.references || [];
-        const asset_count = (source_html.match(/data-image-asset(?:\s|=|>)/gi) || []).length;
-        if (!asset_count) {
-          appendImageGenerationLog('跳过', '当前页面没有可处理的生图资产');
-          showInlineToast(iframe_document, '当前页面没有可处理的生图资产。');
-          return;
-        }
-        if (!image_settings.enabled || (image_settings.mode === 'novelai' && !active_preset)) {
-          appendImageGenerationLog('跳过', '生图配置未激活', {
-            enabled: image_settings.enabled,
-            mode: image_settings.mode,
-            preset: active_preset?.name || '',
-          });
-          showInlineToast(iframe_document, '请先开启生图并配置当前所选接口。');
-          return;
-        }
-        const planned_html = planImageAssetRoutes(source_html, image_settings);
-        if (active_entry) updateOnlineEntry(active_entry.id, { html: planned_html });
-        const parser = new DOMParser().parseFromString(planned_html, 'text/html');
-        const assets = [...parser.querySelectorAll<HTMLElement>('[data-image-asset]')].filter(asset => asset.dataset.imageRenderMode !== 'css' && asset.querySelector('img'));
-        const images = assets.map(asset => asset.querySelector<HTMLImageElement>('img')).filter(Boolean) as HTMLImageElement[];
-        if (!images.length) {
-          renderOnlineContent(iframe_document);
-          showInlineToast(iframe_document, '本页图片均使用 CSS 绘画，没有发送生图请求。');
-          return;
-        }
-        trigger_image_generation.disabled = true;
-        appendImageGenerationLog('请求', `开始生成 ${images.length} 张图片`, {
-          provider: image_settings.mode,
-          model: image_settings.mode === 'gpt_image' ? image_settings.gpt_image.model : active_preset!.model,
-          size: image_settings.mode === 'gpt_image' ? image_settings.gpt_image.size : `${active_preset!.width}x${active_preset!.height}`,
-        });
-        let success_count = 0;
-        try {
-          for (let index = 0; index < images.length; index += 1) {
-            const image = images[index];
-            const html_prompt = String(image.dataset.imagePrompt || '').trim();
-            const is_gpt = image_settings.mode === 'gpt_image';
-            const prompt = is_gpt
-              ? [image_settings.gpt_image.positive_prompt, html_prompt].filter(Boolean).join('\n\n')
-              : [active_preset!.positive_prompt, html_prompt].map(normalizeNovelAiPrompt).filter(Boolean).join(', ');
-            const negative_prompt = is_gpt ? '' : normalizeNovelAiPrompt(active_preset!.negative_prompt);
-            appendImageGenerationLog('请求', `发送第 ${index + 1}/${images.length} 张图片请求`, {
-              prompt: prompt.slice(0, 512),
-              negative_prompt: negative_prompt.slice(0, 512),
-            });
-            const result = is_gpt ? await requestGptImage(image_settings.gpt_image, prompt)
-              : await requestNovelAiImage(active_preset!, prompt, negative_prompt, active_vibe_references);
-            image.src = result.image;
-            image.removeAttribute('data-image-asset-rendered');
-            const status = assets[index].querySelector<HTMLElement>('[data-image-generation-status]');
-            if (status) {
-              status.textContent = `已生成图片 · ${index + 1}/${images.length}`;
-            }
-            success_count += 1;
-            appendImageGenerationLog('成功', `第 ${index + 1}/${images.length} 张图片生成完成`, {
-              response: '图片已解析并写回 HTML。',
-            });
-          }
-          const next_html = `<!doctype html>\n${parser.documentElement.outerHTML}`;
-          if (active_entry) {
-            updateOnlineEntry(active_entry.id, { html: next_html });
-          }
-          online_data.html = next_html;
-          appendImageGenerationLog('完成', `手动生图完成：${success_count}/${images.length}`);
-          renderOnlineContent(iframe_document);
-          showInlineToast(iframe_document, `已生成 ${success_count}/${images.length} 张图片。`);
-        } catch (error) {
-          appendImageGenerationLog('错误', `生图失败：已完成 ${success_count}/${images.length}`, error);
-          showInlineToast(iframe_document, `生图失败：${error instanceof Error ? error.message : String(error)}`);
-        } finally {
-          trigger_image_generation.disabled = false;
-        }
+      trigger_image_generation?.addEventListener('click', () => {
+        void generateOnlineImages(iframe_document);
       });
 
       save_all_settings?.addEventListener('click', () => {
