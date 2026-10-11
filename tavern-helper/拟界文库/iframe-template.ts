@@ -4844,7 +4844,7 @@ function buildIframeHtml() {
                     <div class="online-preview-badge" data-online-detail-badge hidden></div>
                     <button class="image-generation-trigger" type="button" data-trigger-image-generation hidden title="处理当前页面中的生图资产">
                       <i class="fa-solid fa-image" aria-hidden="true"></i>
-                      <span>生成图片</span>
+                      <span>生图编辑</span>
                     </button>
                   </div>
                 </section>

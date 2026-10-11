@@ -64,8 +64,33 @@ function openLoreFrameImageControls(owner: Document, asset_index = 0) {
   dialog.dataset.loreframeImageControls = 'true';
   dialog.setAttribute('aria-label', '图片生成与编辑');
   dialog.dataset.jobKey = job_key;
-  dialog.style.cssText = 'box-sizing:border-box;width:100%;min-width:0;flex:none;border:1px solid var(--panel-border,#526078);border-radius:12px;background:var(--panel-bg,#18212e);color:var(--panel-text,#eef2f8);padding:10px;margin-bottom:10px;';
-  dialog.innerHTML = `<style>[data-loreframe-image-controls] button,[data-loreframe-image-controls] select{font:inherit;color:inherit;background:var(--panel-bg-soft,#263143);border:1px solid var(--panel-border,#53627a);border-radius:8px;padding:8px;min-height:36px;cursor:pointer;max-width:100%}[data-loreframe-image-controls] button:disabled{opacity:.45;cursor:wait}[data-loreframe-image-controls] textarea{box-sizing:border-box;width:100%;color:inherit;background:var(--panel-bg-soft,#172130);border:1px solid var(--panel-border,#53627a);border-radius:8px;padding:10px;font:inherit}[data-loreframe-image-controls] [data-toolbar]{display:flex;gap:6px;flex-wrap:wrap;padding:8px 0}[data-loreframe-image-controls] [data-panel]{max-height:40vh;overflow:auto;padding:8px 0}[data-loreframe-image-controls] label{display:block;margin:8px 0}[data-loreframe-image-controls] [data-status]{padding:6px 0;overflow-wrap:anywhere}</style><strong>图片生成与编辑</strong><label>选择图片 <select data-image-select aria-label="选择图片"></select></label><div data-toolbar role="toolbar" aria-label="图片操作"></div><div data-caption></div><div data-status role="status" aria-live="polite"></div><div data-panel hidden></div>`;
+  dialog.style.cssText = 'box-sizing:border-box;width:100%;min-width:0;flex:none;border:1px solid var(--panel-border,#526078);border-radius:14px;background:var(--panel-bg,#18212e);color:var(--panel-text,#eef2f8);padding:12px 14px;margin-bottom:10px;container-type:inline-size;';
+  dialog.innerHTML = `<style>
+[data-loreframe-image-controls]{font:13px/1.45 system-ui,sans-serif}
+[data-loreframe-image-controls] *{box-sizing:border-box}
+[data-loreframe-image-controls] [data-controls-header]{display:flex;align-items:center;gap:12px;min-width:0}
+[data-loreframe-image-controls] strong{font-size:14px;letter-spacing:.04em;white-space:nowrap}
+[data-loreframe-image-controls] [data-image-select]{width:auto;min-width:90px;max-width:180px}
+[data-loreframe-image-controls] button,[data-loreframe-image-controls] select{font:inherit;color:inherit;background:var(--panel-bg-soft,#263143);border:1px solid var(--panel-border,#53627a);border-radius:8px;padding:6px 10px;min-height:32px;cursor:pointer;max-width:100%;transition:background .15s,border-color .15s}
+[data-loreframe-image-controls] button{display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+[data-loreframe-image-controls] button svg{width:15px;height:15px;flex:none}
+[data-loreframe-image-controls] button:hover{background:color-mix(in srgb,var(--panel-accent,#8ca9da) 20%,var(--panel-bg-soft,#263143));border-color:var(--panel-accent,#8ca9da)}
+[data-loreframe-image-controls] button:focus-visible,[data-loreframe-image-controls] select:focus-visible{outline:2px solid var(--panel-accent,#8ca9da);outline-offset:2px}
+[data-loreframe-image-controls] button:disabled{opacity:.45;cursor:wait}
+[data-loreframe-image-controls] [data-primary]{background:var(--panel-accent,#8ca9da);color:var(--panel-bg,#172130);border-color:transparent;font-weight:650}
+[data-loreframe-image-controls] [data-danger]{color:#d78c91;background:transparent}
+[data-loreframe-image-controls] [data-close]{margin-left:auto;width:30px;min-height:30px;padding:5px;border-color:transparent;background:transparent}
+[data-loreframe-image-controls] [data-toolbar]{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px}
+[data-loreframe-image-controls] [data-action-group]{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+[data-loreframe-image-controls] [data-action-group]+[data-action-group]{padding-left:10px;border-left:1px solid var(--panel-border,#53627a)}
+[data-loreframe-image-controls] textarea{width:100%;color:inherit;background:var(--panel-bg-soft,#172130);border:1px solid var(--panel-border,#53627a);border-radius:8px;padding:10px;font:inherit;resize:vertical}
+[data-loreframe-image-controls] [data-panel]{max-height:40vh;overflow:auto;padding-top:12px;margin-top:10px;border-top:1px solid var(--panel-border,#53627a)}
+[data-loreframe-image-controls] [data-panel] h3{font-size:14px;margin:0 0 10px}
+[data-loreframe-image-controls] [data-panel] label{display:block;margin:10px 0}
+[data-loreframe-image-controls] [data-panel]>button{margin:4px 6px 0 0}
+[data-loreframe-image-controls] [data-status]:not(:empty),[data-loreframe-image-controls] [data-caption]:not(:empty){margin-top:8px;overflow-wrap:anywhere;font-size:12px;opacity:.8}
+@container (max-width:420px){[data-loreframe-image-controls] [data-toolbar]{gap:8px}[data-loreframe-image-controls] [data-action-group]{width:100%;display:flex}[data-loreframe-image-controls] [data-action-group]+[data-action-group]{padding-left:0;border:0}[data-loreframe-image-controls] [data-action-group] button{flex:1;padding:6px 8px}[data-loreframe-image-controls] [data-controls-header]{gap:8px}}
+</style><div data-controls-header><strong>生图编辑</strong><select data-image-select aria-label="选择图片"></select></div><div data-toolbar role="toolbar" aria-label="图片操作"><div data-action-group="generate"></div><div data-action-group="edit"></div><div data-action-group="manage"></div></div><div data-caption></div><div data-status role="status" aria-live="polite"></div><div data-panel hidden></div>`;
   const shell = owner.querySelector('.online-preview-shell');
   if (!shell) return;
   shell.before(dialog);
@@ -126,7 +151,13 @@ function openLoreFrameImageControls(owner: Document, asset_index = 0) {
       xmark: '<path d="m6 6 12 12M18 6 6 18"/>',
     };
     button.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[icon] || paths.pen}</svg>`;
-    button.append(owner.createTextNode(label));
+    const short_labels: Record<string, string> = {
+      '生成本页未完成图片': '补全本页', '生成 / 重生成此图': '生成此图',
+      '下载图片': '下载', '删除当前图片版本': '删除', '编辑提示词': '提示词', '编辑配文': '配文', '历史版本': '历史',
+    };
+    if (label !== '收起图片操作') button.append(owner.createTextNode(short_labels[label] || label));
+    if (label === '生成 / 重生成此图') button.dataset.primary = 'true';
+    if (label === '删除当前图片版本') button.dataset.danger = 'true';
     button.addEventListener('click', async () => {
       if (busy && mutable) return;
       try {
@@ -137,7 +168,13 @@ function openLoreFrameImageControls(owner: Document, asset_index = 0) {
       }
     });
     if (mutable) button.dataset.mutable = 'true';
-    toolbar.append(button);
+    if (label === '收起图片操作') {
+      button.dataset.close = 'true'; dialog.querySelector('[data-controls-header]')!.append(button);
+    } else {
+      const group = label.includes('生成') ? 'generate' : ['编辑提示词', '编辑配文'].includes(label) ? 'edit' : 'manage';
+      const target_group = toolbar.querySelector(`[data-action-group="${group}"]`)!;
+      if (label === '生成 / 重生成此图') target_group.prepend(button); else target_group.append(button);
+    }
     return button;
   };
   const panelButton = (label: string, run: () => void | Promise<void>) => {

@@ -15,7 +15,7 @@ function syncImageGenerationButton(iframe_document: Document) {
   button.setAttribute('aria-busy', String(busy));
   button.title = feedback?.detail || '生成当前页面尚未完成的图片；按当前接口与概率设置执行';
   const label = button.querySelector('span');
-  if (label) { label.textContent = feedback?.label || '生成图片'; label.setAttribute('aria-live', 'polite'); }
+  if (label) { label.textContent = feedback?.label || '生图编辑'; label.setAttribute('aria-live', 'polite'); }
 }
 
 
