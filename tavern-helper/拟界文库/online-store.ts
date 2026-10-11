@@ -138,13 +138,15 @@ type OnlineIndexedPayloadRecord = {
   scope_key: string;
   chat_id: string;
   saved_at: string;
-  data: OnlineData;
+  data?: OnlineData;
+  packed_data?: OnlinePackedPayload;
 };
 
 type OnlineSwipeValue = string | { mes?: string; message?: string; text?: string } | undefined;
 type OnlineSwipeDataValue = { mes?: string; message?: string; text?: string } | undefined;
 
 let online_payload_db_promise: Promise<IDBDatabase | null> | null = null;
+const online_payload_write_promises = new Map<string, Promise<boolean>>();
 const online_payload_cache = new Map<string, OnlineData>();
 const online_payload_load_promises = new Map<string, Promise<OnlineData | null>>();
 const online_payload_migration_keys = new Set<string>();
@@ -388,7 +390,15 @@ function readOnlinePayloadRecord(payload_key: string): Promise<OnlineIndexedPayl
           const transaction = database.transaction(ONLINE_PAYLOAD_STORE_NAME, 'readonly');
           const store = transaction.objectStore(ONLINE_PAYLOAD_STORE_NAME);
           const request = store.get(payload_key);
-          request.onsuccess = () => resolve((request.result as OnlineIndexedPayloadRecord | undefined) || null);
+          request.onsuccess = () => {
+            const record = request.result as OnlineIndexedPayloadRecord | undefined;
+            try {
+              resolve(record ? { ...record, data: record.packed_data ? unpackOnlinePayload(record.packed_data) : record.data } : null);
+            } catch (error) {
+              appendRunLog('缓存', '正文读取失败，保留原始记录，未自动清理。', error);
+              resolve(null);
+            }
+          };
           request.onerror = () => resolve(null);
         } catch {
           resolve(null);
@@ -404,9 +414,9 @@ function writeOnlinePayloadRecord(
   data: OnlineData,
 ): Promise<boolean> {
   online_payload_cache.set(payload_key, normalizeOnlineData(data));
-  return openOnlinePayloadDatabase().then(
+  const pending = openOnlinePayloadDatabase().then(
     database =>
-      new Promise(resolve => {
+      new Promise<boolean>(resolve => {
         if (!database) {
           resolve(false);
           return;
@@ -419,7 +429,7 @@ function writeOnlinePayloadRecord(
             scope_key,
             chat_id,
             saved_at: new Date().toISOString(),
-            data: normalizeOnlineData(data),
+            packed_data: packOnlinePayload(normalizeOnlineData(data)),
           } satisfies OnlineIndexedPayloadRecord);
           transaction.oncomplete = () => resolve(true);
           transaction.onabort = () => resolve(false);
@@ -430,9 +440,17 @@ function writeOnlinePayloadRecord(
         }
       }),
   );
+  online_payload_write_promises.set(payload_key, pending);
+  return pending;
+}
+
+async function waitForOnlinePayloadSave(payload_key: string) {
+  const pending = online_payload_write_promises.get(payload_key);
+  if (pending && !(await pending)) throw Error('图片已生成并保留在内存，但 IndexedDB 保存失败；请勿刷新，先导出备份。');
 }
 
 function deleteOnlinePayloadRecord(payload_key: string): Promise<void> {
+  online_payload_write_promises.delete(payload_key);
   online_payload_cache.delete(payload_key);
   return openOnlinePayloadDatabase().then(
     database =>
@@ -455,6 +473,7 @@ function deleteOnlinePayloadRecord(payload_key: string): Promise<void> {
 }
 
 function clearAllOnlinePayloadRecords(): Promise<void> {
+  online_payload_write_promises.clear();
   online_payload_cache.clear();
   return openOnlinePayloadDatabase().then(
     database =>
@@ -535,6 +554,9 @@ function queueOnlinePayloadHydration(
   }
   const next_promise = readOnlinePayloadRecord(payload_key)
     .then(record => {
+      // A late read must not replace a newer write or resurrect a deleted chat.
+      if (online_payload_cache.has(payload_key)) return online_payload_cache.get(payload_key)!;
+      if (!readJsonStorage(getOnlineChatStorageKey(scope_key, chat_id), null)) return null;
       if (!record?.data) {
         return null;
       }
@@ -1332,7 +1354,7 @@ function measureStorageStringBytes(text: string) {
 }
 
 function measureOnlineStorageBytes(value: unknown) {
-  return measureStorageStringBytes(JSON.stringify(value ?? null));
+  return measureStorageStringBytes(JSON.stringify(supportsOnlinePayloadIndexedDb() ? packOnlinePayload(value) : value ?? null));
 }
 
 function measureLocalStorageEntryBytes(key: string, value: string) {

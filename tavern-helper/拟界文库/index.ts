@@ -3,6 +3,7 @@ import constantsSource from './constants?raw';
 import stateSource from './state?raw';
 import typesSource from './types?raw';
 import settingsSource from './settings?raw';
+import payloadCodecSource from './payload-codec?raw';
 import onlineStoreSource from './online-store?raw';
 import utilsSource from './utils?raw';
 import storageSource from './storage?raw';
@@ -19,6 +20,7 @@ import hostButtonsSource from './host-buttons?raw';
 import releaseSource from './release.json?raw';
 import baibaiSource from './baibai?raw';
 import gptImageSource from './gpt-image?raw';
+import imageViewerSource from './image-viewer?raw';
 import imageGenerationSource from './image-generation?raw';
 import imageRoutingSource from './image-routing?raw';
 
@@ -48,6 +50,8 @@ const onlineFeatureParts = [
   ['gpt-image.ts', gptImageSource],
   ['image-routing.ts', imageRoutingSource],
   ['image-generation.ts', imageGenerationSource],
+  ['image-viewer.ts', imageViewerSource],
+  ['payload-codec.ts', payloadCodecSource],
   ['online-store.ts', onlineStoreSource],
   ['utils.ts', utilsSource],
   ['storage.ts', storageSource],

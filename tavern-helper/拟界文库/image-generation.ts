@@ -17,7 +17,7 @@ function syncImageGenerationButton(iframe_document: Document) {
 }
 
 
-async function generateOnlineImages(iframe_document: Document, automatic = false) {
+async function generateOnlineImages(iframe_document: Document, automatic = false, target?: { asset_index: number; force: boolean }) {
   const online_data = getCurrentOnlineData();
   const active_entry = online_data.active_entry;
   const active_variant = getEntryActiveVariant(active_entry);
@@ -35,6 +35,10 @@ async function generateOnlineImages(iframe_document: Document, automatic = false
   let expected_html = String(active_variant.html || active_entry.html || '');
   const source_html = String(active_entry?.html || active_variant?.html || online_data.html || '');
   const image_settings = normalizeImageGenerationSettings(getSettings().image_generation);
+  const target_image = target ? new DOMParser().parseFromString(source_html, 'text/html').querySelectorAll('[data-image-asset]')[target.asset_index]?.querySelector<HTMLImageElement>('img') : null;
+  const provider = target_image?.dataset.imageProvider || '';
+  if (provider === 'gpt_image') image_settings.mode = 'gpt_image';
+  if (provider.startsWith('novelai:')) { image_settings.mode = 'novelai'; image_settings.active_preset_id = provider.slice(8); }
   const active_preset = image_settings.presets.find(preset => preset.id === image_settings.active_preset_id);
   const active_vibe_group = image_settings.vibe_groups.find(group => group.id === image_settings.active_vibe_group_id);
   const active_vibe_references = active_vibe_group?.references || [];
@@ -60,10 +64,11 @@ async function generateOnlineImages(iframe_document: Document, automatic = false
   expected_html = planned_html;
   const parser = new DOMParser().parseFromString(planned_html, 'text/html');
   const assets = [...parser.querySelectorAll<HTMLElement>('[data-image-asset]')].filter(
-    asset =>
+    (asset, index) =>
+      (!target || target.asset_index === index) &&
       asset.dataset.imageRenderMode !== 'css' &&
       asset.querySelector('img') &&
-      asset.querySelector('img')?.dataset.imageGenerationComplete !== 'true',
+      (target?.force || asset.querySelector('img')?.dataset.imageGenerationComplete !== 'true'),
   );
   const images = assets
     .map(asset => asset.querySelector<HTMLImageElement>('img'))
@@ -98,7 +103,7 @@ async function generateOnlineImages(iframe_document: Document, automatic = false
       const prompt = is_gpt
         ? [image_settings.gpt_image.positive_prompt, html_prompt].filter(Boolean).join('\n\n')
         : [active_preset!.positive_prompt, html_prompt].map(normalizeNovelAiPrompt).filter(Boolean).join(', ');
-      const negative_prompt = is_gpt ? '' : normalizeNovelAiPrompt(active_preset!.negative_prompt);
+      const negative_prompt = is_gpt ? '' : [active_preset!.negative_prompt, image.dataset.imageNegativePrompt].map(normalizeNovelAiPrompt).filter(Boolean).join(', ');
       appendImageGenerationLog('请求', `发送第 ${index + 1}/${images.length} 张图片请求`, {
         prompt: prompt.slice(0, 512),
         negative_prompt: negative_prompt.slice(0, 512),
@@ -107,17 +112,19 @@ async function generateOnlineImages(iframe_document: Document, automatic = false
         ? await requestGptImage(image_settings.gpt_image, prompt)
         : await requestNovelAiImage(active_preset!, prompt, negative_prompt, active_vibe_references);
       if (!still_current()) return;
+      recordLoreFrameImageVersion(image, result.image);
       image.src = result.image;
       image.dataset.imageGenerationComplete = 'true';
       image.removeAttribute('data-image-asset-rendered');
       const status = assets[index].querySelector<HTMLElement>('[data-image-generation-status]');
       if (status) {
-        status.textContent = `已生成图片 · ${index + 1}/${images.length}`;
+        status.remove();
       }
       const next_html = `<!doctype html>\n${parser.documentElement.outerHTML}`;
       updateOnlineEntry(active_entry.id, { html: next_html });
       expected_html = next_html;
       renderOnlineContent(iframe_document);
+      await waitForOnlinePayloadSave(getCurrentOnlineData().payload_key || '');
       success_count += 1;
       feedback(`正在生成 ${success_count}/${images.length}`, '已完成图片已保存，正在处理剩余图片。');
       appendImageGenerationLog('成功', `第 ${index + 1}/${images.length} 张图片生成完成`, {

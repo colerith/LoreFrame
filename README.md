@@ -1,13 +1,15 @@
 # «LoreFrame»｜拟界文库
 
-## 当前版本：1.7.12（2026-10-11）
+## 当前版本：1.7.13（2026-10-11）
 
 酒馆助手在线导入：
 
 ```js
-import "https://cdn.jsdelivr.net/gh/colerith/LoreFrame@loreframe-v1.7.12/file/loreframe-1.7.12.js";
+import "https://cdn.jsdelivr.net/gh/colerith/LoreFrame@loreframe-v1.7.13/file/loreframe-1.7.13.js";
 ```
 
+- 图片占位改为居中图标，生成后隐藏提示词条；点击可查看大图、单张重生成、下载、编辑提示词/接口/配文、切换及删除历史版本。
+- 剧场正文、候选和图片历史落盘去重，兼容旧记录，导出完整内容；生图完成等待 IndexedDB 提交。浏览器验证沙盒交互、窄屏及数据库往返。
 - 修复图片 Base64 重复进入 localStorage：IndexedDB 模式只保留索引；配额失败不再触发 1MB 强制清理。
 - 生图按钮增加开始提示、进度、忙碌禁用和失败重试。
 - 图片 ZIP 使用内置 fflate 解压；日志区分响应头、正文传输与解压阶段。
@@ -19,7 +21,7 @@ import "https://cdn.jsdelivr.net/gh/colerith/LoreFrame@loreframe-v1.7.12/file/lo
 - 页面保存后自动生成命中 API 的图片，CSS 分支不调用接口；已有页面点击生图按钮补跑。
 - 生图任务去重、逐张保存，失败重试跳过已完成图片；切换聊天、版本或编辑内容后停止旧结果写回。
 - 保留 Claude/Gemini Flash 尾部 user 消息、GPT Image、柏宝绘导入与面板尺寸修复。
-- [版本清单与 SHA-256](file/loreframe-1.7.12.manifest.json) · [使用说明](tavern-helper/拟界文库/README.md) · [发布流程](tavern-helper/拟界文库/发布流程.md)
+- [版本清单与 SHA-256](file/loreframe-1.7.13.manifest.json) · [使用说明](tavern-helper/拟界文库/README.md) · [发布流程](tavern-helper/拟界文库/发布流程.md)
 - 历史版本文件和标签保留，更新需替换在线导入链接。
 - ESLint、模拟接口及 DOM 回归、生产构建通过；未运行真实付费生图或酒馆真机验收。
 

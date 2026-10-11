@@ -9,7 +9,7 @@ const base = 'src/util/酒馆助手脚本/线上功能脚本/';
 let html, calls, fail, pending, chat;
 const entry = { id: 'entry', active_variant_id: 'variant' };
 const context = vm.createContext({
- DOMParser: dom.window.DOMParser, console,
+ DOMParser: dom.window.DOMParser, console, waitForOnlinePayloadSave:async()=>{},
  getCurrentOnlineData: () => ({active_entry: entry, entries: [entry]}),
  getEntryActiveVariant: () => ({ id: 'variant', html }),
  getCurrentOnlineScopeInfo: () => ({ scope_key: 'scope' }),
@@ -21,6 +21,7 @@ const context = vm.createContext({
  appendImageGenerationLog: () => {}, showInlineToast: () => {}, renderOnlineContent: () => {},
  requestGptImage: async () => { calls++; if (pending) await pending; if (calls === fail) throw Error('mock failure'); return {image: 'data:image/png;base64,AAAA'}; },
 });
+vm.runInContext(ts.transpileModule(fs.readFileSync(base + 'image-viewer.ts','utf8'), {compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText, context);
 vm.runInContext(ts.transpileModule(fs.readFileSync(base + 'image-generation.ts','utf8'), {compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText, context);
 function reset() { html = '<figure data-image-asset><img data-image-prompt="sky"></figure>'.repeat(2); entry.html = html; calls=0; fail=0; pending=null; chat='a'; }
 (async () => {
@@ -42,6 +43,9 @@ function reset() { html = '<figure data-image-asset><img data-image-prompt="sky"
  entry.active_variant_id='other'; release(); await switching; assert.ok(!html.includes('data-image-generation-complete')); entry.active_variant_id='variant';
  reset(); html=html.replaceAll('data-image-asset','data-image-asset data-image-render-mode="css"'); entry.html=html;
  await context.generateOnlineImages(dom.window.document,true); assert.equal(calls,0);
+ reset(); await context.generateOnlineImages(dom.window.document,true); assert.equal(calls,2);
+ await context.generateOnlineImages(dom.window.document,false,{asset_index:0,force:true}); assert.equal(calls,3);
+ const generated=new dom.window.DOMParser().parseFromString(html,'text/html');const generatedImages=generated.querySelectorAll('img');assert.equal(JSON.parse(generatedImages[0].dataset.imageVersions).length,2);assert.equal(JSON.parse(generatedImages[1].dataset.imageVersions).length,1);
  assert.match(fs.readFileSync(base+'generation.ts','utf8'), /generateOnlineImages\(iframe_document, true\)/);
  console.log('PASS automatic hook, duplicate requests, partial persistence, retry, chat guard, CSS bypass');
 })().catch(error => {console.error(error);process.exitCode=1;});
