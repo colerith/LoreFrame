@@ -1,0 +1,16 @@
+# Local release instructions; keep them on the maintainer's computer.
+发布流程.md
+
+# Dependencies and local build output (published file/ artifacts stay tracked).
+node_modules/
+dist/
+release/
+
+# Local fixtures, logs and credentials.
+.loreframe-*
+*.log
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
