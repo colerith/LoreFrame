@@ -143,7 +143,7 @@ function normalizeSourceCollectorWorldbookNames(
 ): SourceCollectorWorldbookNames {
   const candidate = value && typeof value === 'object' ? (value as Partial<SourceCollectorWorldbookNames>) : null;
   return {
-    primary: isStringValue(candidate?.primary) ? candidate.primary : fallback_worldbook || null,
+    primary: candidate ? (isNonEmptyStringValue(candidate.primary) ? candidate.primary.trim() : null) : fallback_worldbook || null,
     additional: Array.isArray(candidate?.additional) ? candidate.additional.filter(isStringValue) : [],
   };
 }
@@ -195,7 +195,12 @@ function collectChatDebugSnapshot(iframe_document: Document, reason: string) {
   }
 }
 
+function getSourceContextKey() {
+  return `${getCurrentOnlineScopeInfo().scope_key}::${getCurrentRawChatStorageId()}`;
+}
+
 async function collectSourceDebugSnapshot(iframe_document: Document, reason: string) {
+  const context_key = getSourceContextKey();
   try {
     setSourceStatus(iframe_document, '读取中', '正在读取角色卡和世界书；不会读取预设提示词。');
 
@@ -347,6 +352,7 @@ async function collectSourceDebugSnapshot(iframe_document: Document, reason: str
         }
       }
     }
+    if (context_key !== getSourceContextKey()) return;
     latest_worldbook_entry_catalog = worldbook_catalog as Array<Record<string, unknown>>;
 
     const character_text_length = [character?.description, character?.creator_notes].reduce(
@@ -399,6 +405,7 @@ async function collectSourceDebugSnapshot(iframe_document: Document, reason: str
     );
     renderWorldbookEntryControls(iframe_document);
   } catch (error) {
+    if (context_key !== getSourceContextKey()) return;
     setSourceStatus(iframe_document, '读取失败', getSourceCollectorErrorMessage(error));
     console.error('[LoreFrame] 读取角色卡/世界书失败', error);
   }
@@ -459,16 +466,19 @@ async function filterBoundActivatedWorldInfoEntries(
   if (!entry_list.length) {
     return [];
   }
+  const context_key = getSourceContextKey();
   const allowed_worldbooks = await getBoundWorldbookNameSet();
+  if (context_key !== getSourceContextKey()) return [];
   return entry_list.filter((entry: SourceCollectorWorldbookEntry) => {
     const worldbook_name = getActivatedEntryWorldbookName(entry);
-    return !worldbook_name || allowed_worldbooks.has(worldbook_name);
+    return Boolean(worldbook_name) && allowed_worldbooks.has(worldbook_name);
   });
 }
 
 async function collectOnlineSourceMaterial(
   target_message_id?: string | number | null,
 ): Promise<SourceCollectorOnlineSourceMaterial> {
+  const source_context_key = getSourceContextKey();
   const get_current_character_name = getApiFunction('getCurrentCharacterName');
   const get_character = getApiFunction('getCharacter');
   const get_char_data = getApiFunction('getCharData');
@@ -733,6 +743,7 @@ async function collectOnlineSourceMaterial(
     .join('\n\n');
   const all_online_memory = getAllOnlineMemory() || '暂无过去页面正文。';
 
+  if (source_context_key !== getSourceContextKey()) throw Error('聊天已切换，请在当前聊天重新生成。');
   return {
     message_count: messages.length,
     total_message_count: all_messages.length,

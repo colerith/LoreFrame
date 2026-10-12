@@ -284,7 +284,7 @@ type SettingsState = {
   launch_entry_modes: SettingsLaunchEntryMode[];
   excluded_character_names: string[];
   excluded_tags: string[];
-  random_detail_prompt: { enabled: boolean; prompt_ids: string[]; count: number; trigger_probability: number };
+  random_detail_prompt: { enabled: boolean; resident_ids: string[]; prompt_ids: string[]; count: number; trigger_probability: number };
   secondary_api: SettingsSecondaryApiConfig;
   secondary_api_profiles: SettingsSecondaryApiProfile[];
   active_secondary_api_profile_id: string;
@@ -751,6 +751,7 @@ function getDefaultSettings() {
     excluded_tags: [...DEFAULT_EXCLUDED_TAGS],
     random_detail_prompt: {
       enabled: false,
+      resident_ids: [],
       prompt_ids: [],
       count: 1,
       trigger_probability: 100,
@@ -1622,6 +1623,9 @@ function normalizeSettings(settings: SettingsInput | null | undefined): Settings
         : normalizeStringList((settings as { excluded_tags?: unknown }).excluded_tags, { lowercase: true }),
     random_detail_prompt: {
       enabled: Boolean(settings?.random_detail_prompt?.enabled),
+      resident_ids: [...new Set(settings?.random_detail_prompt?.resident_ids || [])].filter(id =>
+        normalized_detail_prompts.some(prompt => prompt.id === id),
+      ),
       prompt_ids: Array.isArray(settings?.random_detail_prompt?.prompt_ids)
         ? settings.random_detail_prompt.prompt_ids.filter((id: string) =>
             normalized_detail_prompts.some(prompt => prompt.id === id),
@@ -1968,11 +1972,13 @@ function getGenerationPrompt(
   const trigger_roll = Math.random() * 100;
   const configured_prompt_ids = Array.isArray(random_config.prompt_ids) ? random_config.prompt_ids.filter(Boolean) : [];
   const should_trigger_detail = bypass_trigger_probability || trigger_roll < trigger_probability;
+  const residents = settings.detail_prompts.filter(prompt => random_config.resident_ids?.includes(prompt.id));
+  const resident_ids = new Set(residents.map(prompt => prompt.id));
   const random_candidates =
     random_config.enabled && should_trigger_detail
-      ? settings.detail_prompts.filter(prompt => configured_prompt_ids.includes(prompt.id))
+      ? settings.detail_prompts.filter(prompt => configured_prompt_ids.includes(prompt.id) && !resident_ids.has(prompt.id))
       : [];
-  const selected_details = random_config.enabled
+  const optional_details = random_config.enabled
     ? random_candidates.length
       ? [...random_candidates]
           .sort(() => Math.random() - 0.5)
@@ -1981,7 +1987,9 @@ function getGenerationPrompt(
     : active_detail?.id
       ? [active_detail]
       : [];
+  const selected_details = [...residents, ...optional_details.filter(prompt => !resident_ids.has(prompt.id))];
   const detail_prompt_debug = {
+    resident_count: residents.length,
     mode: random_config.enabled ? 'random' : 'manual',
     bypass_trigger_probability,
     trigger_probability,
@@ -2073,6 +2081,9 @@ function saveSettings(settings: SettingsInput | null | undefined) {
         : normalizeStringList((settings as { excluded_tags?: unknown }).excluded_tags, { lowercase: true }),
     random_detail_prompt: {
       enabled: Boolean(settings?.random_detail_prompt?.enabled),
+      resident_ids: Array.isArray(settings?.random_detail_prompt?.resident_ids)
+        ? [...new Set(settings.random_detail_prompt.resident_ids.map(String))]
+        : [],
       prompt_ids: Array.isArray(settings?.random_detail_prompt?.prompt_ids)
         ? settings.random_detail_prompt.prompt_ids.map(String)
         : [],

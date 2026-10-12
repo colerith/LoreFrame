@@ -1,13 +1,17 @@
 # «LoreFrame»｜拟界文库
 
-## 当前版本：1.7.16（2026-10-11）
+## 当前版本：1.7.17（2026-10-12）
 
 酒馆助手在线导入：
 
 ```js
-import "https://cdn.jsdelivr.net/gh/colerith/LoreFrame@loreframe-v1.7.16/file/loreframe-1.7.16.js";
+import "https://cdn.jsdelivr.net/gh/colerith/LoreFrame@loreframe-v1.7.17/file/loreframe-1.7.17.js";
 ```
 
+- 修复无世界书角色回退旧绑定、跨世界书同号条目误激活，以及扫描 Map 被误读为未知条目；隔离切换聊天后的过期结果。
+- 新增常驻小剧场：每次携带、不占随机名额、不受随机概率影响，与随机/当前选择去重；在提示词管理的生成设置中配置。
+- 删除单角色聊天后核对服务器列表，仅同步清理对应剧场（含收藏）与正文缓存；保留其他聊天和仍被分支使用的记录。群聊暂不联动。
+- 修复切换小剧场分组后的大块空白，重置滚动位置、按内容从顶部排列。
 - 自动从 IndexedDB 恢复缺失的聊天轻量索引；恢复期间阻止存储重写，保留原正文与图片。
 - 生图编辑工具栏重新排版：紧凑标题与选图、突出生成此图、操作分组、右上角收起，窄屏按组排列。
 - 图片操作集中在左下角「生图编辑」展开的页内区域，支持选图、补生成、单图重生成、下载、编辑和历史管理；取消点击图片弹窗。
@@ -24,7 +28,7 @@ import "https://cdn.jsdelivr.net/gh/colerith/LoreFrame@loreframe-v1.7.16/file/lo
 - 页面保存后自动生成命中 API 的图片，CSS 分支不调用接口；已有页面点击生图按钮补跑。
 - 生图任务去重、逐张保存，失败重试跳过已完成图片；切换聊天、版本或编辑内容后停止旧结果写回。
 - 保留 Claude/Gemini Flash 尾部 user 消息、GPT Image、柏宝绘导入与面板尺寸修复。
-- [版本清单与 SHA-256](file/loreframe-1.7.16.manifest.json) · [使用说明](tavern-helper/拟界文库/README.md) · [发布流程](tavern-helper/拟界文库/发布流程.md)
+- [版本清单与 SHA-256](file/loreframe-1.7.17.manifest.json) · [使用说明](tavern-helper/拟界文库/README.md) · [发布流程](tavern-helper/拟界文库/发布流程.md)
 - 历史版本文件和标签保留，更新需替换在线导入链接。
 - ESLint、模拟接口及 DOM 回归、生产构建通过；未运行真实付费生图或酒馆真机验收。
 

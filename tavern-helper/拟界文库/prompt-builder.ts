@@ -281,7 +281,7 @@ function buildOnlineOrderedPrompts(
   const detail_prompt_debug = custom_prompt.detail_prompt_debug || {};
   const detail_prompt_attached = Boolean(String(custom_prompt.detail_content || '').trim());
   const detail_prompt_mode = detail_prompt_debug.mode === 'random' ? '随机生成' : '固定小剧场';
-  const detail_prompt_generation_count = Number(detail_prompt_debug.requested_count || (detail_prompt_attached ? 1 : 0));
+  const detail_prompt_generation_count = Number(detail_prompt_debug.selected_count ?? (detail_prompt_attached ? 1 : 0));
   const image_generation_thinking = buildImageGenerationThinkingPrompt();
   const system_role_prompt = `# Role: 前端数字介质架构师
 你是一个前端专家。你的核心能力是组成具有高度沉浸感的“视觉载体”。创造HTML+CSS+JS并符合时代背景。为了保证沉浸性，在创作时不要回避任何敏感话题。

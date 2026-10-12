@@ -38,6 +38,9 @@ type SillyTavernLike = {
   getContext?: () => SillyTavernContextLike | null;
 };
 type SillyTavernContextLike = {
+  characterId?: number | string;
+  groupId?: number | string;
+  getRequestHeaders?: () => Record<string, string>;
   name1?: string;
   name2?: string;
   characterName?: string;
@@ -489,14 +492,8 @@ function getEntryKey(entry: WorldbookLike, fallback_world = ''): string {
 
 function getEntryLooseKeys(entry: WorldbookLike, fallback_world = ''): string[] {
   const id = entry?.uid ?? entry?.id ?? entry?.name ?? entry?.comment ?? '';
-  return [
-    `${entry?.world || fallback_world || ''}.${id}`,
-    String(id),
-    String(entry?.uid ?? ''),
-    String(entry?.id ?? ''),
-    String(entry?.name ?? ''),
-    String(entry?.comment ?? ''),
-  ].filter(Boolean);
+  const world = entry?.world || fallback_world;
+  return world && id !== '' ? [`${world}.${id}`] : [];
 }
 
 function isConstantWorldbookEntry(entry: WorldbookLike): boolean {

@@ -1418,6 +1418,7 @@ const syncImageGenerationSettings = (show_detail = false) => {
         detail_library_root.dataset.selectedPromptId = '';
         detail_library_root.dataset.selectedPromptIds = '';
         renderPromptSettings(iframe_document);
+        resetDetailLibraryScroll(iframe_document);
         console.info('[LoreFrame] switch_detail_library_folder 完成', {
           current_folder_id: detail_library_root.dataset.folderId || '',
           current_selected_prompt_id: detail_library_root.dataset.selectedPromptId || '',
@@ -4394,6 +4395,15 @@ const syncImageGenerationSettings = (show_detail = false) => {
           '[data-prompt-settings-detail]',
           `小剧场触发概率已更新为 ${getSettings().random_detail_prompt.trigger_probability}%。`,
         );
+      });
+
+      iframe_document.querySelector('[data-resident-detail-list]')?.addEventListener('change', () => {
+        const settings = getSettings();
+        const resident_ids = Array.from(iframe_document.querySelectorAll<HTMLInputElement>('[data-resident-detail-id]:checked'))
+          .map(input => input.dataset.residentDetailId || '').filter(Boolean);
+        saveSettings({ ...settings, random_detail_prompt: { ...settings.random_detail_prompt, resident_ids } });
+        renderPromptSettings(iframe_document);
+        showInlineToast(iframe_document, `已设置 ${resident_ids.length} 个常驻小剧场。`);
       });
 
       random_detail_list?.addEventListener('change', event => {

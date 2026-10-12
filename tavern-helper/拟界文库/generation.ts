@@ -367,6 +367,7 @@ async function generateOnlineForCurrentChat(
   if (
     detail_prompt_debug?.mode === 'random' &&
     detail_prompt_debug.reason === 'random-probability-miss' &&
+    !detail_prompt_debug.selected_count &&
     !bypass_detail_probability
   ) {
     const skip_message = `本次未命中小剧场生成概率（${detail_prompt_debug.trigger_probability}%），已跳过整次生成。`;

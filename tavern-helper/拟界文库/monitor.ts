@@ -19,9 +19,21 @@ type MonitorWorldInfoScanPayload = {
 };
 
 function normalizeMonitorWorldbookEntries(value: unknown): SourceCollectorWorldbookEntry[] {
-  return Array.isArray(value)
-    ? value.filter((entry): entry is SourceCollectorWorldbookEntry => Boolean(entry) && typeof entry === 'object')
+  // A scan supplies Map<world.uid, entry>; Array.from(map) contains pairs, not entries.
+  const entries = value && typeof value === 'object' && Symbol.iterator in value
+    ? Array.from(value as Iterable<unknown>)
     : [];
+  return entries.flatMap(item => {
+    const pair = Array.isArray(item) && item.length === 2 && typeof item[0] === 'string' ? item : null;
+    const entry = pair ? pair[1] : item;
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return [];
+    const result = { ...entry } as SourceCollectorWorldbookEntry;
+    if (!result.world && pair) {
+      const separator = pair[0].lastIndexOf('.');
+      if (separator > 0) result.world = pair[0].slice(0, separator);
+    }
+    return [result];
+  });
 }
 
 function normalizeMonitorMessageId(value: unknown): string | number | null {
@@ -214,10 +226,15 @@ function registerGenerationMonitor(iframe_document: Document) {
     latest_activated_world_info_entries = [];
     latest_activated_world_info_text = '';
     latest_persona_world_info_entries = [];
+    latest_worldbook_entry_catalog = [];
     syncOnlineDataWithCurrentChat('chat_changed');
     scheduleChatDebugSnapshot(iframe_document, 'chat_changed');
     renderOnlineContent(iframe_document);
     collectSourceDebugSnapshot(iframe_document, 'chat_changed');
+  });
+
+  listen(events.CHAT_DELETED, (file_name: unknown) => {
+    void clearDeletedChatOnlineData(file_name);
   });
 
   listen(events.MESSAGE_SWIPED, () => {
@@ -259,9 +276,10 @@ function registerGenerationMonitor(iframe_document: Document) {
   });
 
   listen(events.WORLD_INFO_ACTIVATED, async (entries: unknown) => {
-    latest_activated_world_info_entries = await filterBoundActivatedWorldInfoEntries(
-      normalizeMonitorWorldbookEntries(entries),
-    );
+    const context_key = getSourceContextKey();
+    const filtered = await filterBoundActivatedWorldInfoEntries(normalizeMonitorWorldbookEntries(entries));
+    if (context_key !== getSourceContextKey()) return;
+    latest_activated_world_info_entries = filtered;
     latest_activated_world_info_text = latest_activated_world_info_entries.map(getWorldbookEntryContent).join('\n\n');
     updateText(iframe_document, '[data-worldbook-activated-count]', String(latest_activated_world_info_entries.length));
     updateText(
@@ -277,11 +295,13 @@ function registerGenerationMonitor(iframe_document: Document) {
   });
 
   listen(events.WORLDINFO_SCAN_DONE, async (event_data: unknown) => {
+    const context_key = getSourceContextKey();
     const scan_payload = event_data as MonitorWorldInfoScanPayload | null | undefined;
     const activated_source = scan_payload?.activated?.entries;
     const activated_entries = await filterBoundActivatedWorldInfoEntries(
       activated_source ? normalizeMonitorWorldbookEntries(Array.from(activated_source)) : [],
     );
+    if (context_key !== getSourceContextKey()) return;
     if (activated_entries.length) {
       latest_activated_world_info_entries = activated_entries;
       latest_activated_world_info_text = activated_entries.map(getWorldbookEntryContent).join('\n\n');

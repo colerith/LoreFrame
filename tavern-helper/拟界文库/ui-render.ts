@@ -383,6 +383,13 @@ function renderPromptSettings(iframe_document: Document) {
   if (detail_select) {
     detail_select.value = current_detail_prompt?.id || active_detail_prompt?.id || '';
   }
+  const resident_list = iframe_document.querySelector<HTMLElement>('[data-resident-detail-list]');
+  if (resident_list) {
+    const residents = new Set(settings.random_detail_prompt?.resident_ids || []);
+    resident_list.innerHTML = settings.detail_prompts.map(prompt =>
+      `<label class="random-prompt-option"><input type="checkbox" data-resident-detail-id="${escapeHtml(prompt.id)}" ${residents.has(prompt.id) ? 'checked' : ''} /><span>常驻 · ${escapeHtml(prompt.name)}</span></label>`,
+    ).join('') || '<p class="settings-card__note">还没有可选的小剧场。</p>';
+  }
   const random_detail_list = iframe_document.querySelector<HTMLElement>('[data-random-detail-list]');
   if (random_detail_list) {
     const selected_random_ids = new Set(settings.random_detail_prompt?.prompt_ids || []);
@@ -461,7 +468,8 @@ function renderPromptSettings(iframe_document: Document) {
       ? null
       : settings.detail_prompt_folders.find(folder => folder.id === detail_folder_id) ||
         settings.detail_prompt_folders[0];
-  const active_prompt_ids = new Set(settings.random_detail_prompt?.prompt_ids || []);
+  const resident_prompt_ids = new Set(settings.random_detail_prompt?.resident_ids || []);
+  const active_prompt_ids = new Set([...(settings.random_detail_prompt?.prompt_ids || []), ...resident_prompt_ids]);
   const manager_prompts = settings.detail_prompts
     .filter(prompt => (detail_folder_id === '__all__' ? true : prompt.folder_id === detail_folder_id))
     .filter(prompt => (detail_source_filter === 'all' ? true : prompt.source === detail_source_filter))
@@ -542,7 +550,7 @@ function renderPromptSettings(iframe_document: Document) {
                   </button>
                   <div class="detail-library-card__meta-actions">
                     <span class="detail-library-activation ${active_prompt_ids.has(prompt.id) ? 'is-active' : ''}">
-                      ${active_prompt_ids.has(prompt.id) ? '已激活' : '未激活'}
+                      ${resident_prompt_ids.has(prompt.id) ? '常驻' : active_prompt_ids.has(prompt.id) ? '已激活' : '未激活'}
                     </span>
                     <button class="detail-library-card__action" type="button" data-detail-manager-edit-prompt="${escapeHtml(prompt.id)}" aria-label="编辑小剧场" title="编辑小剧场">
                       <i class="fa-solid fa-pen" aria-hidden="true"></i>
@@ -1225,5 +1233,12 @@ function updateWorldbookEntryOverride(
           ? '已额外纳入该世界书条目。'
           : '已恢复默认。',
     );
+  }
+}
+
+function resetDetailLibraryScroll(iframe_document: Document) {
+  const grid = iframe_document.querySelector<HTMLElement>('[data-detail-manager-card-grid]');
+  for (let element: HTMLElement | null = grid || null; element; element = element.parentElement) {
+    element.scrollTop = 0;
   }
 }

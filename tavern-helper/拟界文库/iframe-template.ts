@@ -2044,7 +2044,9 @@ function buildIframeHtml() {
             .detail-library-stage {
               display: grid;
               gap: 12px;
-              min-height: 100%;
+              align-content: start;
+              grid-auto-rows: max-content;
+              min-height: 0;
               padding: 12px;
             }
 
@@ -5614,10 +5616,11 @@ function buildIframeHtml() {
                                 <span>随机生成</span>
                               </label>
                             </div>
-                            <p class="settings-card__note">开启后会从已激活的小剧场中随机抽取；关闭时则使用当前选中的小剧场。触发概率用于控制每层消息是否附带小剧场。</p>
+                            <p class="settings-card__note">常驻小剧场每次都带，不占随机名额。开启随机生成后，从其余已激活的小剧场中抽取；触发概率仅控制随机部分。关闭随机时附带当前选中的小剧场，与常驻去重。</p>
+                            <div class="random-prompt-list" data-resident-detail-list aria-label="常驻小剧场"></div>
                             <div class="appearance-theme-schedule">
                               <div class="field">
-                                <label for="online-content-random-detail-count">每次生成剧场数</label>
+                                <label for="online-content-random-detail-count">额外随机剧场数</label>
                                 <input class="input" id="online-content-random-detail-count" type="number" min="1" max="10" step="1" data-random-detail-count />
                               </div>
                               <div class="field">

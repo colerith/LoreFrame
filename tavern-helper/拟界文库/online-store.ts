@@ -407,12 +407,15 @@ function readOnlinePayloadRecord(payload_key: string): Promise<OnlineIndexedPayl
   );
 }
 
+const deleted_online_payload_keys = new Set<string>();
+
 function writeOnlinePayloadRecord(
   payload_key: string,
   scope_key: string,
   chat_id: string,
   data: OnlineData,
 ): Promise<boolean> {
+  if (deleted_online_payload_keys.has(payload_key)) return Promise.resolve(false);
   online_payload_cache.set(payload_key, normalizeOnlineData(data));
   const pending = openOnlinePayloadDatabase().then(
     database =>
@@ -424,6 +427,7 @@ function writeOnlinePayloadRecord(
         try {
           const transaction = database.transaction(ONLINE_PAYLOAD_STORE_NAME, 'readwrite');
           const store = transaction.objectStore(ONLINE_PAYLOAD_STORE_NAME);
+          if (deleted_online_payload_keys.has(payload_key)) { resolve(false); return; }
           const request = store.put({
             id: payload_key,
             scope_key,
@@ -962,6 +966,7 @@ function writeOnlineDataStore(store: OnlineDataStore, scope_info = getCurrentOnl
       return;
     }
     const payload_key = getOnlinePayloadStorageKey(scope_info.scope_key, chat_id);
+    if (deleted_online_payload_keys.has(payload_key)) return;
     const normalized = normalizeOnlineData(
       attachCurrentOnlineScope({
         ...data,
@@ -1254,6 +1259,7 @@ function saveOnlineData(data: OnlineDataInput | OnlineData): OnlineData {
   const identity = getCurrentChatStorageIdentity();
   const scope = getCurrentOnlineScopeInfo();
   const payload_key = getOnlinePayloadStorageKey(scope.scope_key, identity.storage_id);
+  if (deleted_online_payload_keys.has(payload_key)) throw Error('该聊天已删除，已取消保存。');
   const normalized = normalizeOnlineData({
     ...attachCurrentOnlineScope(data),
     chat_identity_key: identity.storage_id,
@@ -2494,4 +2500,74 @@ function saveCurrentOnlineData(
   data: Partial<OnlineEntry> & Partial<OnlineVariant> & { message_id?: OnlineMessageId; swipe_id?: unknown },
 ) {
   return saveOnlineEntryForCurrentChat(data);
+}
+
+function normalizeDeletedChatName(value: unknown) {
+  return typeof value === 'string' ? value.trim().replace(/\.jsonl$/i, '') : '';
+}
+
+async function clearDeletedChatOnlineData(file_name: unknown) {
+  const name = normalizeDeletedChatName(file_name);
+  if (!name) return;
+  const context = getSillyTavernContext();
+  const scope = getCurrentOnlineScopeInfo();
+  const character = context?.characters?.[Number(context.characterId)];
+  const avatar = scope.character_avatar || String(character?.avatar || '');
+  // CHAT_DELETED carries only a filename, including for deletion by another script.
+  // Confirm its absence for this character before deleting any local content.
+  if (context?.groupId || !avatar || !context?.getRequestHeaders) return;
+  try {
+    const response = await host_window.fetch('/api/characters/chats', {
+      method: 'POST', headers: context.getRequestHeaders(),
+      body: JSON.stringify({ avatar_url: avatar, simple: true }),
+    });
+    if (!response.ok) throw Error(`聊天列表读取失败 (${response.status})`);
+    const chats = await response.json();
+    if (!chats || typeof chats !== 'object' || chats.error) throw Error('聊天列表格式无效');
+    const items = Object.values(chats) as Array<{ file_name?: string }>;
+    if (items.some(item => !item || typeof item.file_name !== 'string')) throw Error('聊天列表格式无效');
+    if (items.some(item => normalizeDeletedChatName(item.file_name) === name)) return;
+    await removeDeletedChatOnlineRecords(name, scope, new Set(items.map(item => normalizeDeletedChatName(item.file_name))));
+    if (current_iframe_document && scope.scope_key === getCurrentOnlineScopeInfo().scope_key) {
+      renderOnlineContent(current_iframe_document);
+    }
+  } catch (error) {
+    appendRunLog('缓存', '删除聊天后的剧场清理未完成，已保留本地记录。', error);
+  }
+}
+
+async function removeDeletedChatOnlineRecords(name: string, scope: OnlineScopeInfo, surviving_names = new Set<string>()) {
+  let removed = 0;
+  for (const scope_key of getOnlineScopeReadKeys(scope)) {
+    const matched = new Set<string>();
+    for (const item of readOnlineChatIndexForScopeKey(scope_key)) {
+      const key = getOnlineChatStorageKey(scope_key, item.chat_id);
+      const payload_key = getOnlinePayloadStorageKey(scope_key, item.chat_id);
+      const data = readJsonStorage<OnlineDataInput | null>(key, null)
+        || (await readOnlinePayloadRecord(payload_key))?.data;
+      const aliases = [item.chat_id, ...(data?.chat_aliases || [])];
+      const names = aliases.map(alias => normalizeDeletedChatName(alias.replace(/^legacy:/, '')));
+      // Old fingerprint-based records can be shared by identical chat branches.
+      if (names.includes(name) && !names.some(alias => surviving_names.has(alias))) matched.add(item.chat_id);
+    }
+    if (!matched.size) continue;
+    // Remove the authoritative index first, so missing-shell recovery cannot restore it.
+    const next_index = readOnlineChatIndexForScopeKey(scope_key).filter(item => !matched.has(item.chat_id));
+    if (!writeJsonStorage(getOnlineScopeStorageKey(scope_key), next_index)) throw Error('无法更新聊天缓存索引');
+    for (const chat_id of matched) {
+      const payload_key = getOnlinePayloadStorageKey(scope_key, chat_id);
+      deleted_online_payload_keys.add(payload_key);
+      host_window.localStorage.removeItem(getOnlineChatStorageKey(scope_key, chat_id));
+      host_window.localStorage.removeItem(`${CHAT_STORAGE_PREFIX}${chat_id}`);
+      host_window.localStorage.removeItem(`${OLD_CHAT_STORAGE_PREFIX}${chat_id}`);
+    }
+    // Fence all matching records before the first await; sibling writes may still be pending.
+    for (const chat_id of matched) {
+      const payload_key = getOnlinePayloadStorageKey(scope_key, chat_id);
+      await online_payload_write_promises.get(payload_key);
+      await deleteOnlinePayloadRecord(payload_key);
+      removed += 1;
+    }
+  }
+  if (removed) appendRunLog('缓存', `已随聊天删除清理 ${removed} 份剧场缓存（含该聊天收藏）；其他聊天不受影响。`);
 }

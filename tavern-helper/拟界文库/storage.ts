@@ -548,7 +548,7 @@ async function getPersonaWorldbookName() {
   }
 
   try {
-    return String(await trigger_slash('/getpersonabook')).trim();
+    return String((await trigger_slash('/getpersonabook')) || '').trim();
   } catch (error) {
     console.warn('[LoreFrame] /getpersonabook 读取失败', error);
     return '';
