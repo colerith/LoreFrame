@@ -4678,6 +4678,46 @@ function buildIframeHtml() {
               padding-bottom: var(--safe-bottom-final);
             }
           * { scrollbar-width: none !important; } *::-webkit-scrollbar { display:none !important; width:0 !important; height:0 !important; }
+          
+            /* Compact, theme-aware character library; no full-width action buttons. */
+            [data-image-character-settings].lf-character-library { padding:18px; gap:14px; font-size:14px; }
+            .lf-character-library .lf-character-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+            .lf-character-library h3,.lf-character-library h4,.lf-character-library p { margin:0; }
+            .lf-character-library h3 { font-size:18px; line-height:1.4; }
+            .lf-character-library h4 { display:flex; align-items:center; gap:8px; font-size:15px; line-height:1.5; }
+            .lf-character-library .settings-card__note { font-size:12px; line-height:1.7; margin:10px 0 14px; }
+            .lf-character-library [role="status"]:empty { display:none; }
+            .lf-character-library [role="status"]:not(:empty) { padding:10px 12px; margin:0 0 12px; font-size:12px; line-height:1.6; border-radius:10px; background:color-mix(in srgb,var(--panel-accent) 12%,transparent); }
+            .lf-character-library .lf-character-group { padding:16px 0 0; margin-top:16px; border-top:1px solid var(--panel-border); }
+            .lf-character-library .lf-character-count,.lf-character-library .lf-character-badge { padding:2px 8px; border-radius:20px; font-size:11px; font-weight:500; line-height:1.6; background:color-mix(in srgb,var(--panel-accent) 14%,transparent); color:var(--panel-accent-strong); flex-shrink:0; }
+            .lf-character-library .lf-character-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr)); gap:12px; margin-top:12px; }
+            .lf-character-library .lf-character-card { min-width:0; padding:14px; border:1px solid var(--panel-border); border-radius:14px; background:color-mix(in srgb,var(--panel-accent) 4%,transparent); display:flex; flex-direction:column; gap:10px; }
+            .lf-character-library .lf-character-card.is-disabled { background:transparent; border-style:dashed; }
+            .lf-character-library .lf-character-card.is-disabled strong { opacity:.55; }
+            .lf-character-library strong { font-size:14px; line-height:1.5; overflow-wrap:anywhere; min-width:0; flex:1; }
+            .lf-character-library .lf-character-preview { font-size:12px; line-height:1.65; white-space:pre-wrap; overflow-wrap:anywhere; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+            .lf-character-library .lf-character-negative { font-size:11px; line-height:1.6; opacity:.65; overflow-wrap:anywhere; display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; overflow:hidden; }
+            .lf-character-library .is-expanded .lf-character-preview,.lf-character-library .is-expanded .lf-character-negative { display:block; }
+            .lf-character-library .lf-character-actions { display:flex; flex-wrap:wrap; gap:6px; margin-top:auto; padding-top:4px; }
+            .lf-character-library .lf-character-button { appearance:none; width:auto; min-height:32px; padding:6px 11px; margin:0; border:1px solid var(--panel-border); border-radius:9px; background:transparent; color:var(--panel-text); font-weight:500; font-family:inherit; font-size:12px; line-height:1.4; cursor:pointer; transition:background .15s,border-color .15s; }
+            .lf-character-library .lf-character-button:hover { background:color-mix(in srgb,var(--panel-accent) 14%,transparent); border-color:var(--panel-accent); }
+            .lf-character-library .lf-character-button:focus-visible { outline:2px solid var(--panel-accent); outline-offset:2px; }
+            .lf-character-library .lf-character-button:disabled { opacity:.5; cursor:wait; }
+            .lf-character-library .lf-character-heading > button,.lf-character-library .lf-character-form .lf-character-actions > button:first-child { background:color-mix(in srgb,var(--panel-accent) 16%,transparent); color:var(--panel-accent-strong); border-color:color-mix(in srgb,var(--panel-accent) 35%,var(--panel-border)); }
+            .lf-character-library .lf-character-card > .lf-character-actions > button:last-child { color:#c56b76; margin-left:auto; }
+            .lf-character-library .lf-character-form { display:grid; gap:12px; padding:16px; margin-top:12px; border:1px solid var(--panel-accent); border-radius:12px; }
+            .lf-character-library .lf-character-form label { display:grid; gap:6px; font-size:12px; }
+            .lf-character-library .lf-character-form .input { width:100%; box-sizing:border-box; font-size:14px; padding:10px 12px; }
+            .lf-character-library .lf-character-form textarea { min-height:100px; resize:vertical; line-height:1.6; }
+            .lf-character-library .lf-character-confirm { display:flex; align-items:center; flex-wrap:wrap; gap:8px; font-size:12px; padding-top:10px; border-top:1px solid var(--panel-border); }
+            .lf-character-library .lf-character-empty { font-size:12px; opacity:.65; padding:16px 0; }
+            @media (max-width:540px) {
+              [data-image-character-settings].lf-character-library { padding:14px; }
+              .lf-character-library .lf-character-grid { grid-template-columns:1fr; }
+              .lf-character-library .lf-character-button { min-height:36px; }
+              .lf-character-library .lf-character-form .input { font-size:16px; }
+            }
+
           </style>
         </head>
         <body>

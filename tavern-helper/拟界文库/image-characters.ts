@@ -90,17 +90,19 @@ function renderImageCharacterSettings(owner: Document) {
   const text = (tag: string, value: string, parent: HTMLElement = root) => {
     const node = owner.createElement(tag); node.textContent = value; parent.append(node); return node;
   };
-  text('h3', '角色提示词库');
+  root.classList.add('lf-character-library');
+  const heading = text('div', ''); heading.className = 'lf-character-heading';
+  text('h3', '角色提示词库', heading);
   text('p', '全局角色供所有聊天使用；同名时以本聊天为准。可在「生图编辑 → 提示词」选择出镜角色，或使用 @{角色名}。导入仅新增，不覆盖已有同名角色。').className = 'settings-card__note';
   const status = text('p', ''); status.setAttribute('role', 'status');
   const identity = JSON.stringify([getCurrentOnlineScopeInfo().scope_key, getCurrentChatStorageLabel()]);
   const ensure = () => { if (identity !== JSON.stringify([getCurrentOnlineScopeInfo().scope_key, getCurrentChatStorageLabel()])) throw new Error('聊天已切换，请重新打开角色管理。'); };
   const button = (parent: HTMLElement, label: string, run: () => unknown) => {
-    const node = owner.createElement('button'); node.type = 'button'; node.className = 'plain-button'; node.textContent = label;
+    const node = owner.createElement('button'); node.type = 'button'; node.className = 'lf-character-button'; node.textContent = label;
     node.onclick = async () => { node.disabled = true; try { ensure(); await run(); } catch (error) { status.textContent = String((error as Error).message || error); } finally { node.disabled = false; } };
     parent.append(node); return node;
   };
-  button(root, '从柏宝绘导入角色', async () => {
+  button(heading, '从柏宝绘导入角色', async () => {
     const imported = await importBaibaiImageCharacters(); ensure();
     let count = 0;
     for (const scope of ['global', 'chat']) {
@@ -113,11 +115,17 @@ function renderImageCharacterSettings(owner: Document) {
     root.querySelector('[role="status"]')!.textContent = count ? `已导入 ${count} 个角色。后续修改柏宝绘设置不会自动覆盖此处。` : '没有可新增的角色：请检查柏宝绘角色库，已有同名角色会跳过。';
   });
   for (const scope of ['global', 'chat']) {
-    const group = text('section', ''); group.className = 'settings-card';
-    text('h4', scope === 'global' ? '全局角色' : '本聊天角色', group);
+    const group = text('section', ''); group.className = 'lf-character-group';
+    const rows = readImageCharacters(scope);
+    const group_head = text('div', '', group); group_head.className = 'lf-character-heading';
+    const title = text('h4', scope === 'global' ? '全局角色' : '本聊天角色', group_head);
+    text('span', String(rows.length), title).className = 'lf-character-count';
+    const grid = text('div', '', group); grid.className = 'lf-character-grid';
     const edit = (original?: LoreFrameImageCharacter) => {
       group.querySelector('[data-character-editor]')?.remove();
-      const form = text('div', '', group); form.dataset.characterEditor = ''; form.className = 'settings-stack';
+      const form = text('div', '', group); form.dataset.characterEditor = ''; form.className = 'lf-character-form';
+      group.insertBefore(form, grid);
+      text('h4', original ? '编辑 · ' + original.name : '新增角色', form);
       const field = (label: string, value: string, multiline = false) => {
         const wrap = text('label', label, form);
         const input = owner.createElement(multiline ? 'textarea' : 'input'); input.className = 'input'; input.value = value; wrap.append(input); return input;
@@ -125,25 +133,39 @@ function renderImageCharacterSettings(owner: Document) {
       const name = field('角色名称', original?.name || '');
       const prompt = field('外观 / 正面提示词', original?.prompt || '', true);
       const negative = field('负面提示词（仅 NovelAI）', original?.negative || '', true);
-      button(form, '保存角色', async () => {
+      const form_actions = text('div', '', form); form_actions.className = 'lf-character-actions';
+      button(form_actions, '保存角色', async () => {
         const value = name.value.trim(); if (!value) throw new Error('请填写角色名称。');
         const rows = readImageCharacters(scope);
         if (rows.some(row => row.name === value && row.name !== original?.name)) throw new Error('此范围已有同名角色，请直接编辑。');
         await saveImageCharacters(scope, [...rows.filter(row => row.name !== original?.name), { name: value, prompt: prompt.value, negative: negative.value, enabled: original?.enabled !== false }]);
         ensure(); renderImageCharacterSettings(owner);
       });
-      button(form, '取消', () => form.remove());
+      button(form_actions, '取消', () => form.remove());
+      name.focus();
+      form.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
     };
-    button(group, '新增角色', () => edit());
-    readImageCharacters(scope).forEach(row => {
-      const card = text('div', '', group); card.className = 'settings-card';
-      text('strong', row.name + (row.enabled ? '' : '（已停用）'), card);
-      const preview = text('p', row.prompt || '未填写外观提示词', card); preview.style.cssText = 'white-space:pre-wrap;overflow-wrap:anywhere;max-height:7em;overflow:auto';
-      button(card, '编辑', () => edit(row));
-      button(card, row.enabled ? '停用' : '启用', async () => { await saveImageCharacters(scope, readImageCharacters(scope).map(item => item.name === row.name ? { ...item, enabled: !item.enabled } : item)); ensure(); renderImageCharacterSettings(owner); });
-      button(card, '删除', () => {
+    button(group_head, '新增角色', () => edit());
+    if (!rows.length) text('p', '暂无角色，点击「新增角色」或从柏宝绘导入。', grid).className = 'lf-character-empty';
+    rows.forEach(row => {
+      const card = text('article', '', grid); card.className = 'lf-character-card'; card.classList.toggle('is-disabled', !row.enabled);
+      const card_head = text('div', '', card); card_head.className = 'lf-character-heading';
+      text('strong', row.name, card_head);
+      text('span', !row.enabled ? '已停用' : scope === 'global' ? '全局' : '本聊天', card_head).className = 'lf-character-badge';
+      const preview = text('p', row.prompt || '未填写外观提示词', card); preview.className = 'lf-character-preview';
+      if (row.negative) text('p', '负面：' + row.negative, card).className = 'lf-character-negative';
+      const actions = text('div', '', card); actions.className = 'lf-character-actions';
+      if (row.prompt.length > 120 || row.negative.length > 80) button(actions, '展开', () => {
+        const expanded = card.classList.toggle('is-expanded');
+        const toggle = actions.querySelector<HTMLButtonElement>('[data-expand]');
+        if (toggle) { toggle.textContent = expanded ? '收起' : '展开'; toggle.setAttribute('aria-expanded', String(expanded)); }
+      }).dataset.expand = '';
+
+      button(actions, '编辑', () => edit(row));
+      button(actions, row.enabled ? '停用' : '启用', async () => { await saveImageCharacters(scope, readImageCharacters(scope).map(item => item.name === row.name ? { ...item, enabled: !item.enabled } : item)); ensure(); renderImageCharacterSettings(owner); });
+      button(actions, '删除', () => {
         if (card.querySelector('[data-confirm-delete]')) return;
-        const confirm = text('div', '删除此角色？已有图片不受影响。', card); confirm.dataset.confirmDelete = '';
+        const confirm = text('div', '删除此角色？已有图片不受影响。', card); confirm.dataset.confirmDelete = ''; confirm.className = 'lf-character-confirm';
         button(confirm, '确认删除', async () => { await saveImageCharacters(scope, readImageCharacters(scope).filter(item => item.name !== row.name)); ensure(); renderImageCharacterSettings(owner); });
         button(confirm, '取消', () => confirm.remove());
       });
