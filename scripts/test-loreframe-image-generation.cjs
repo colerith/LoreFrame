@@ -8,7 +8,7 @@ const button = dom.window.document.querySelector('button');
 const base = 'src/util/酒馆助手脚本/线上功能脚本/';
 let html, calls, fail, pending, chat;
 const entry = { id: 'entry', active_variant_id: 'variant' };
-const context = vm.createContext({
+const context = vm.createContext({imageCharacterThinkingPrompt:()=>'',effectiveImageCharacters:()=>[],imageCharacterNames:()=>[],resolveImageCharacterPrompt:image=>({prompt:image.dataset.imagePrompt||'',negative:''}),
  DOMParser: dom.window.DOMParser, console, waitForOnlinePayloadSave:async()=>{},
  getCurrentOnlineData: () => ({active_entry: entry, entries: [entry]}),
  getEntryActiveVariant: () => ({ id: 'variant', html }),

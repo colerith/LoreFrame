@@ -100,12 +100,13 @@ async function generateOnlineImages(iframe_document: Document, automatic = false
     for (let index = 0; index < images.length; index += 1) {
       if (!still_current()) return;
       const image = images[index];
-      const html_prompt = String(image.dataset.imagePrompt || '').trim();
+      const character_prompt = resolveImageCharacterPrompt(image);
+      const html_prompt = character_prompt.prompt.trim();
       const is_gpt = image_settings.mode === 'gpt_image';
       const prompt = is_gpt
         ? [image_settings.gpt_image.positive_prompt, html_prompt].filter(Boolean).join('\n\n')
         : [active_preset!.positive_prompt, html_prompt].map(normalizeNovelAiPrompt).filter(Boolean).join(', ');
-      const negative_prompt = is_gpt ? '' : [active_preset!.negative_prompt, image.dataset.imageNegativePrompt].map(normalizeNovelAiPrompt).filter(Boolean).join(', ');
+      const negative_prompt = is_gpt ? '' : [active_preset!.negative_prompt, image.dataset.imageNegativePrompt, character_prompt.negative].map(normalizeNovelAiPrompt).filter(Boolean).join(', ');
       appendImageGenerationLog('请求', `发送第 ${index + 1}/${images.length} 张图片请求`, {
         prompt: prompt.slice(0, 2000),
         prompt_length: prompt.length,

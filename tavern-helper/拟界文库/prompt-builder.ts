@@ -38,7 +38,7 @@ function buildImageGenerationThinkingPrompt() {
 模型：${config.model}；画幅：${config.size}；质量：${config.quality}；背景：${config.background}。
 共用画风：${config.positive_prompt || '无'}。
 不要在 HTML 中调用 API、包含密钥、编造图片地址或加入 NovelAI 专属参数。客户端使用当前 GPT Image 配置生成图片。
-</ImageGenerationThinking>` + imageProbabilityPrompt(image_generation);
+</ImageGenerationThinking>` + imageProbabilityPrompt(image_generation) + imageCharacterThinkingPrompt();
   }
   const preset =
     image_generation.presets.find(item => item.id === image_generation.active_preset_id) ||
@@ -88,7 +88,7 @@ function buildImageGenerationThinkingPrompt() {
 
 Vibe Transfer：
 ${vibe_summary}
-</ImageGenerationThinking>` + imageProbabilityPrompt(image_generation);
+</ImageGenerationThinking>` + imageProbabilityPrompt(image_generation) + imageCharacterThinkingPrompt();
 }
 
 function stripOnlineThinkingBlocks(text: unknown) {

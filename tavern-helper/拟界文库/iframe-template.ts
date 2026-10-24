@@ -5199,6 +5199,7 @@ function buildIframeHtml() {
                             </div>
                           </section>
 
+                          <section class="settings-card" data-image-character-settings></section>
                           <section class="settings-card" data-image-provider-panel="gpt_image" hidden>
                             <div class="settings-card__head"><h3>GPT Image 配置</h3></div>
                             <p class="settings-card__note">独立保存 GPT Image 配置，支持官方服务及兼容代理。当前用于文生图；NovelAI 的 Vibe 与负面提示词不会发送到此接口。</p>

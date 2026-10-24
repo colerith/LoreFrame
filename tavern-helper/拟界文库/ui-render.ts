@@ -32,6 +32,7 @@ function normalizeImageAssetMarkup(html: string) {
     }
     const generated = Boolean(image.getAttribute('src')) && !String(image.getAttribute('src')).startsWith('data:image/svg+xml');
     image.dataset.imageAssetRendered = generated ? 'false' : 'true';
+    if (!image.hasAttribute('data-image-characters') && asset.hasAttribute('data-image-characters')) image.dataset.imageCharacters = asset.dataset.imageCharacters;
     image.dataset.imagePrompt = prompt;
     image.dataset.imageNegativePrompt = negative_prompt;
     image.alt = image.alt || `剧场生图 ${index + 1}`;
@@ -39,6 +40,16 @@ function normalizeImageAssetMarkup(html: string) {
       image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="960" height="640" viewBox="0 0 960 640"><rect width="960" height="640" fill="#edf2ef"/><g transform="translate(432 272)" fill="none" stroke="#789087" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="88" height="88" rx="12"/><circle cx="32" cy="31" r="8"/><path d="M6 73 34 49 53 66 69 48 92 73"/></g></svg>')}`;
     }
     if (generated) {
+      // Let the image determine its own height; generated pages often fix both
+      // the image and an enclosing wrapper to a cropped banner size.
+      const set = (element: HTMLElement, values: Record<string, string>) => Object.entries(values).forEach(([key, value]) => element.style.setProperty(key, value, 'important'));
+      set(image, { display: 'block', width: '100%', height: 'auto', 'max-height': 'none', 'min-height': '0', 'object-fit': 'contain', 'aspect-ratio': 'auto', position: 'relative', inset: 'auto', transform: 'none' });
+      let wrapper: HTMLElement | null = image.parentElement;
+      while (wrapper && asset.contains(wrapper)) {
+        set(wrapper, { height: 'auto', 'max-height': 'none', 'min-height': '0', 'aspect-ratio': 'auto', 'overflow-y': 'visible' });
+        if (wrapper === asset) break;
+        wrapper = wrapper.parentElement;
+      }
       asset.querySelectorAll('[data-image-generation-status]').forEach(status => status.remove());
       return;
     }
@@ -185,6 +196,7 @@ function renderAppearanceSettings(iframe_document: Document) {
   });
 }
 function renderPromptSettings(iframe_document: Document) {
+  renderImageCharacterSettings(iframe_document);
   renderAppearanceSettings(iframe_document);
   const settings = getSettings();
   const published_prompt_ids = new Set(getPublishedPromptPresets().map(prompt => prompt.id));

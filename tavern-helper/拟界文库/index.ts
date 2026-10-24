@@ -22,6 +22,7 @@ import baibaiSource from './baibai?raw';
 import gptImageSource from './gpt-image?raw';
 import imageViewerSource from './image-viewer?raw';
 import imageGenerationSource from './image-generation?raw';
+import imageCharactersSource from './image-characters?raw';
 import imageRoutingSource from './image-routing?raw';
 
 const loreFrameBranding = {
@@ -49,6 +50,7 @@ const onlineFeatureParts = [
   ['baibai.ts', baibaiSource],
   ['gpt-image.ts', gptImageSource],
   ['image-routing.ts', imageRoutingSource],
+  ['image-characters.ts', imageCharactersSource],
   ['image-generation.ts', imageGenerationSource],
   ['image-viewer.ts', imageViewerSource],
   ['payload-codec.ts', payloadCodecSource],

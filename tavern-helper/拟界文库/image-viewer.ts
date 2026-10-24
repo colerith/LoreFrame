@@ -311,11 +311,25 @@ function openLoreFrameImageControls(owner: Document, asset_index = 0) {
       };
       const prompt = input('画面提示词', picture!.dataset.imagePrompt || '', 12000);
       const negative = input('负面提示词（NovelAI）', picture!.dataset.imageNegativePrompt || '', 12000);
+      const selected_characters = new Set(imageCharacterNames(picture!));
+      const character_fields: { name: string; input: HTMLInputElement }[] = [];
+      const characters = effectiveImageCharacters();
+      if (characters.length) {
+        const title = owner.createElement('p'); title.textContent = '出镜角色（只勾选这张图片需要的角色）'; panel.append(title);
+        characters.forEach(character => {
+          const label = owner.createElement('label');
+          const check = owner.createElement('input'); check.type = 'checkbox'; check.checked = selected_characters.has(character.name);
+          label.append(check, owner.createTextNode(character.name)); panel.append(label);
+          character_fields.push({ name: character.name, input: check });
+        });
+      }
       panelButton('保存修改', () => {
         ensure();
         picture!.dataset.imagePrompt = prompt.value.trim();
         picture!.dataset.imageNegativePrompt = negative.value.trim();
         picture!.dataset.imageProvider = select.value;
+        character_fields.forEach(({ name, input }) => input.checked ? selected_characters.add(name) : selected_characters.delete(name));
+        picture!.dataset.imageCharacters = JSON.stringify([...selected_characters]);
         save();
         panel.hidden = true;
       });

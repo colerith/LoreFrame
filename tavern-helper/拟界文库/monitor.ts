@@ -229,6 +229,7 @@ function registerGenerationMonitor(iframe_document: Document) {
     latest_worldbook_entry_catalog = [];
     syncOnlineDataWithCurrentChat('chat_changed');
     scheduleChatDebugSnapshot(iframe_document, 'chat_changed');
+    renderImageCharacterSettings(iframe_document);
     renderOnlineContent(iframe_document);
     collectSourceDebugSnapshot(iframe_document, 'chat_changed');
   });
