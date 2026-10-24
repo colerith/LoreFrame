@@ -1258,22 +1258,24 @@ function normalizeOnlineData(data: OnlineDataInput | OnlineData | null | undefin
 function saveOnlineData(data: OnlineDataInput | OnlineData): OnlineData {
   const identity = getCurrentChatStorageIdentity();
   const scope = getCurrentOnlineScopeInfo();
-  const payload_key = getOnlinePayloadStorageKey(scope.scope_key, identity.storage_id);
+  const store = readOnlineDataStore(scope);
+  if (online_payload_load_promises.size || online_missing_snapshot_pending.size) {
+    throw Error('剧场正文正在从本地缓存恢复，请稍后重试；原记录未修改。');
+  }
+  const chat_id = findStoredChatKeyForCurrentChat(store, identity) || identity.storage_id;
+  if (Object.values(store).some(item => item?.payload_storage === 'indexeddb' && item.entries?.length && !hasInlineOnlinePayload(item))) {
+    throw Error('本地剧场正文尚未读取成功，已保留原记录；请重试读取后再编辑。');
+  }
+  const payload_key = getOnlinePayloadStorageKey(scope.scope_key, chat_id);
   if (deleted_online_payload_keys.has(payload_key)) throw Error('该聊天已删除，已取消保存。');
   const normalized = normalizeOnlineData({
     ...attachCurrentOnlineScope(data),
-    chat_identity_key: identity.storage_id,
+    chat_identity_key: chat_id,
     chat_aliases: identity.aliases,
     payload_key,
     payload_storage: supportsOnlinePayloadIndexedDb() ? 'indexeddb' : 'inline',
   });
-  const chat_id = identity.storage_id;
   const scope_info = normalized.scope || scope;
-  const store = readOnlineDataStore(scope_info);
-  const existing_chat_id = findStoredChatKeyForCurrentChat(store, identity);
-  if (existing_chat_id && existing_chat_id !== chat_id) {
-    delete store[existing_chat_id];
-  }
   store[chat_id] = normalized;
   const write_succeeded = writeOnlineDataStore(store, scope_info);
   if (!write_succeeded) {
@@ -1743,6 +1745,7 @@ function pruneOnlineDataAgainstCurrentMessages(
     return { data: normalized, changed: false, removed_count: 0 };
   }
 
+  if (!message_map.size) return { data: normalized, changed: false, removed_count: 0 };
   let removed_count = 0;
   const entries = normalized.entries
     .map(entry => {
@@ -1843,30 +1846,24 @@ function findInheritableOnlineDataForCurrentChat(
 }
 
 function shouldPruneOnlineDataForReason(reason: unknown) {
-  return ['chat_changed', 'message_deleted', 'message_edited', 'message_swipe_deleted'].includes(String(reason || ''));
+  return ['message_deleted', 'message_swipe_deleted'].includes(String(reason || ''));
 }
 
 function syncOnlineDataWithCurrentChat(reason = ''): OnlineData {
   const identity = getCurrentChatStorageIdentity();
-  const chat_id = identity.storage_id;
   const store = readOnlineDataStore();
-  const existing_chat_id = findStoredChatKeyForCurrentChat(store, identity) || chat_id;
+  const existing_chat_id = findStoredChatKeyForCurrentChat(store, identity) || identity.storage_id;
+  const chat_id = existing_chat_id;
   const inherit_disabled = Boolean(store[existing_chat_id]?.inherit_disabled);
   const has_current_store = Boolean(
     store[existing_chat_id]?.entries?.length || store[existing_chat_id]?.html || store[existing_chat_id]?.memory_text,
   );
   let current = normalizeOnlineData(store[existing_chat_id] || getEmptyOnlineData());
 
-  if (existing_chat_id !== chat_id && store[existing_chat_id]) {
-    delete store[existing_chat_id];
-    store[chat_id] = normalizeOnlineData({
-      ...current,
-      chat_identity_key: identity.storage_id,
-      chat_aliases: identity.aliases,
-    });
-    current = normalizeOnlineData(store[chat_id]);
-    writeOnlineDataStore(store);
-  }
+  // A cold start exposes metadata before IndexedDB and chat messages are ready.
+  // Never rename/delete payload keys from a read or switch-chat operation.
+  if (online_payload_load_promises.size || online_missing_snapshot_pending.size) return current;
+  if (Object.values(store).some(item => item?.payload_storage === 'indexeddb' && item.entries?.length && !hasInlineOnlinePayload(item))) return current;
 
   if (!has_current_store && !inherit_disabled) {
     const inherited = findInheritableOnlineDataForCurrentChat(chat_id, store);

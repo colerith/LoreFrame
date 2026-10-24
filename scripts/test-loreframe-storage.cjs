@@ -4,7 +4,7 @@ const source=fs.readFileSync(file,'utf8');const ast=ts.createSourceFile(file,sou
 const names=['createOnlineDataStorageSnapshot','createOnlineEntryStorageSnapshot','createOnlineVariantStorageSnapshot','createOnlineVariantMetaSnapshot','saveOnlineData','writeOnlinePayloadRecord','readOnlinePayloadRecord','recoverMissingOnlineSnapshot'];
 const code=ast.statements.filter(n=>ts.isFunctionDeclaration(n)&&names.includes(n.name.text)).map(n=>n.getText(ast)).join('\n');
 let indexed=true,pruned=false,transaction;
-const context=vm.createContext({console,Map,Date,deleted_online_payload_keys:new Set(),online_missing_snapshot_pending:new Set(),online_missing_snapshot_attempted:new Set(),current_iframe_document:null,appendRunLog:()=>{},
+const context=vm.createContext({console,Map,Date,deleted_online_payload_keys:new Set(),online_payload_load_promises:new Map(),online_missing_snapshot_pending:new Set(),online_missing_snapshot_attempted:new Set(),current_iframe_document:null,appendRunLog:()=>{},
  supportsOnlinePayloadIndexedDb:()=>indexed, normalizeOnlineData:x=>x,normalizeOnlineSelectionMaps:x=>x,
  createOnlineVariant:x=>x||{},getOnlineEntryKey:x=>'entry-'+x,getCurrentOnlineScopeInfo:()=>({scope_key:'scope'}),getCurrentChatStorageId:()=> 'chat',getOnlinePayloadStorageKey:()=> 'payload',
  getCurrentChatStorageIdentity:()=>({storage_id:'chat',aliases:[]}),attachCurrentOnlineScope:x=>x,readOnlineDataStore:()=>({}),findStoredChatKeyForCurrentChat:()=>null,writeOnlineDataStore:()=>false,pruneOnlineStorageForCurrentScope:()=>{pruned=true;},

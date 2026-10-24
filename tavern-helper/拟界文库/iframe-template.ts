@@ -5212,7 +5212,7 @@ function buildIframeHtml() {
                               <div class="field"><label for="loreframe-gpt-quality">质量</label><select class="select" id="loreframe-gpt-quality" data-gpt-image-field="quality"><option value="auto">自动</option><option value="low">低</option><option value="medium">中</option><option value="high">高</option><option value="xhigh">超高（2.5 系列）</option><option value="max">最高（2.5 系列）</option></select></div>
                               <div class="field"><label for="loreframe-gpt-format">图片格式</label><select class="select" id="loreframe-gpt-format" data-gpt-image-field="output_format"><option value="png">PNG</option><option value="webp">WebP</option><option value="jpeg">JPEG</option></select></div>
                               <div class="field"><label for="loreframe-gpt-background">背景</label><select class="select" id="loreframe-gpt-background" data-gpt-image-field="background"><option value="auto">自动</option><option value="opaque">不透明</option><option value="transparent">透明（PNG / WebP）</option></select></div>
-                              <div class="field is-wide"><label for="loreframe-gpt-prompt">共用画风与要求</label><textarea class="textarea" id="loreframe-gpt-prompt" rows="4" maxlength="4000" data-gpt-image-field="positive_prompt" placeholder="用自然语言描述风格；每张图的画面描述会追加在后面。"></textarea></div>
+                              <div class="field is-wide"><label for="loreframe-gpt-prompt">共用画风与要求</label><textarea class="textarea" id="loreframe-gpt-prompt" rows="4" data-gpt-image-field="positive_prompt" placeholder="用自然语言描述风格；每张图的画面描述会追加在后面。"></textarea></div>
                             </div>
                             <p class="settings-card__note">拉取列表不生图，代理可能返回其他用途的模型；模型及质量选项以服务商支持为准。生成请求最多等待 4 分钟。</p>
                             <button class="plain-button" type="button" data-save-gpt-image>保存 GPT Image 设置</button>
@@ -5266,11 +5266,11 @@ function buildIframeHtml() {
                             <div class="prompt-textarea-stack">
                               <div class="field is-wide">
                                 <label for="online-content-image-positive-prompt">正面提示词</label>
-                                <textarea class="textarea" id="online-content-image-positive-prompt" rows="4" maxlength="512" data-image-positive-prompt placeholder="最多 512 字符"></textarea>
+                                <textarea class="textarea" id="online-content-image-positive-prompt" rows="4" data-image-positive-prompt placeholder="支持长提示词；实际可用长度由生图接口决定"></textarea>
                               </div>
                               <div class="field is-wide">
                                 <label for="online-content-image-negative-prompt">负面提示词</label>
-                                <textarea class="textarea" id="online-content-image-negative-prompt" rows="4" maxlength="512" data-image-negative-prompt placeholder="最多 512 字符"></textarea>
+                                <textarea class="textarea" id="online-content-image-negative-prompt" rows="4" data-image-negative-prompt placeholder="支持长提示词；实际可用长度由生图接口决定"></textarea>
                               </div>
                             </div>
                             <div class="api-grid">

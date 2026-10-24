@@ -2,7 +2,7 @@
 
 拟界文库是一个运行在酒馆助手中的小剧场脚本。它会结合当前聊天、角色设定与绑定的世界书，把剧情延伸成可阅读、可交互的网页：角色日常、论坛帖子、聊天记录、物品展示……都可以通过小剧场提示词来定制。
 
-当前版本：**1.7.17**
+当前版本：**1.7.18**
 
 ## ✨ 主要功能
 
@@ -19,13 +19,15 @@
 
 需要先安装酒馆助手。
 
-在【酒馆助手】中新建一个【全局脚本】，将以下内容粘贴到脚本代码中，保存并启用：
+推荐下载 [GitHub 版导入文件](https://github.com/colerith/LoreFrame/raw/main/file/loreframe-git-loader.json)，在【酒馆助手】中导入【全局脚本】，保存并启用。也可以将 [GitHub 版 JS](https://github.com/colerith/LoreFrame/raw/main/file/loreframe-git-loader.js) 的完整代码粘贴进已有脚本。
+
+GitHub 版会优先用本地缓存启动，后台检查更新；新版本下载完成后，下次重载脚本生效。已有有效缓存时，临时断网仍可打开文库。升级时只启用一个拟界文库脚本。
+
+需要固定版本时，仍可使用以下导入语句：
 
 ```js
-import "https://cdn.jsdelivr.net/gh/colerith/LoreFrame@loreframe-v1.7.17/file/loreframe-1.7.17.js";
+import "https://cdn.jsdelivr.net/gh/colerith/LoreFrame@loreframe-v1.7.18/file/loreframe-1.7.18.js";
 ```
-
-已安装旧版的用户，直接将脚本中的导入语句替换为上面这行，保存后停用再启用脚本。
 
 ## 🌱 开始使用
 

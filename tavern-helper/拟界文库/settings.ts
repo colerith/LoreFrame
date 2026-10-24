@@ -172,7 +172,7 @@ function normalizeGptImageSettings(config?: Partial<SettingsGptImage>): Settings
     quality: ['auto', 'low', 'medium', 'high', 'xhigh', 'max'].includes(config?.quality || '') ? config!.quality! : 'auto',
     output_format: ['png', 'jpeg', 'webp'].includes(config?.output_format || '') ? config!.output_format! : 'png',
     background: ['auto', 'opaque', 'transparent'].includes(config?.background || '') ? config!.background! : 'auto',
-    positive_prompt: String(config?.positive_prompt || '').slice(0, 4000),
+    positive_prompt: String(config?.positive_prompt || ''),
   };
 }
 
@@ -1230,7 +1230,7 @@ function clampInteger(value: unknown, fallback: number, min: number, max: number
 }
 
 function clampPromptText(value: unknown) {
-  return String(value || '').slice(0, 512);
+  return String(value || '');
 }
 
 function normalizeImageGenerationConnectionMode(value: unknown): SettingsImageGenerationConnectionMode {

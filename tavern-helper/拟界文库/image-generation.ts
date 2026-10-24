@@ -107,8 +107,10 @@ async function generateOnlineImages(iframe_document: Document, automatic = false
         : [active_preset!.positive_prompt, html_prompt].map(normalizeNovelAiPrompt).filter(Boolean).join(', ');
       const negative_prompt = is_gpt ? '' : [active_preset!.negative_prompt, image.dataset.imageNegativePrompt].map(normalizeNovelAiPrompt).filter(Boolean).join(', ');
       appendImageGenerationLog('请求', `发送第 ${index + 1}/${images.length} 张图片请求`, {
-        prompt: prompt.slice(0, 512),
-        negative_prompt: negative_prompt.slice(0, 512),
+        prompt: prompt.slice(0, 2000),
+        prompt_length: prompt.length,
+        negative_prompt: negative_prompt.slice(0, 2000),
+        negative_prompt_length: negative_prompt.length,
       });
       const result = is_gpt
         ? await requestGptImage(image_settings.gpt_image, prompt)
