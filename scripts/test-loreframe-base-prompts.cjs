@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const ts = require('typescript');
 const { JSDOM } = require('jsdom');
 const base = 'src/util/酒馆助手脚本/拟界文库/';
-const context = vm.createContext({ console });
+const context = vm.createContext({ console, escapeHtml: value => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') });
 function load(file) {
   vm.runInContext(ts.transpileModule(fs.readFileSync(base + file, 'utf8'), {
     compilerOptions: { target: ts.ScriptTarget.ES2022 },
@@ -135,3 +135,7 @@ Object.assign(context, {
   assert.equal(status.at(-1)[0], '生成失败');
   console.log('PASS persistent base settings, separate HTML/text requests and saves, unique stream IDs, partial failure preservation and lock cleanup');
 })().catch(error => { console.error(error); process.exitCode = 1; });
+
+const named = context.parseOnlineGenerationResult('正文', 'text', '量体裁衣 <测试>');
+assert.equal(named.title, '量体裁衣 <测试>');
+assert.ok(named.html.includes('<title>量体裁衣 &lt;测试&gt;</title>'));

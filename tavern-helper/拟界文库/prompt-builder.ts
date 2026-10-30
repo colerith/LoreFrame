@@ -100,7 +100,7 @@ function stripOnlineThinkingBlocks(text: unknown) {
     .trim();
 }
 
-function parseOnlineGenerationResult(result: unknown, output_mode: 'text' | 'html' = 'html') {
+function parseOnlineGenerationResult(result: unknown, output_mode: 'text' | 'html' = 'html', theater_name = '') {
   const text = typeof result === 'string' ? result : JSON.stringify(result);
   const cleaned_text = stripOnlineThinkingBlocks(text);
   const trimmed = cleaned_text.trim();
@@ -108,7 +108,8 @@ function parseOnlineGenerationResult(result: unknown, output_mode: 'text' | 'htm
     if (!trimmed) throw Error('文字剧场正文为空');
     const payload = JSON.stringify(trimmed).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026');
     return {
-      html: TEXT_THEATER_TEMPLATE.replace('__LOREFRAME_TEXT_JSON__', () => payload),
+      title: theater_name.trim() || '文字剧场',
+      html: TEXT_THEATER_TEMPLATE.replace(/<title>[\s\S]*?<\/title>/i, () => '<title>' + escapeHtml(theater_name.trim() || '文字剧场') + '</title>').replace('__LOREFRAME_TEXT_JSON__', () => payload),
       memory_text: sanitizeMemoryText(trimmed),
       raw_result: cleaned_text,
     };

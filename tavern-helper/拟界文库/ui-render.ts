@@ -1,3 +1,8 @@
+function getTheaterDisplayTitle(entry: { title?: string; detail_prompt_name?: string } | null | undefined) {
+  const title = String(entry?.title || '');
+  return /^日月西美化\s*-\s*文字剧场/.test(title) ? String(entry?.detail_prompt_name || '文字剧场') : title;
+}
+
 type AppearanceThemeKey = keyof SettingsAppearance;
 type AppearanceColorKey = keyof SettingsAppearanceTheme;
 type WorldbookCatalogItem = {
@@ -1006,8 +1011,8 @@ function renderOnlineContent(iframe_document: Document) {
   const resolved_updated_at =
     active_entry?.updated_at || active_variant?.updated_at || online_data.updated_at || '';
   const resolved_title = String(
-    active_entry?.title ||
-      active_variant?.title ||
+    getTheaterDisplayTitle(active_entry) ||
+      getTheaterDisplayTitle(active_variant) ||
       extractOnlineTitle({ html: resolved_html }) ||
       online_data.active_entry?.title ||
       online_data.active_entry?.id ||
@@ -1097,7 +1102,7 @@ function renderOnlineContent(iframe_document: Document) {
   );
   const render_record_button = (entry: OnlineEntry) => `
       <button class="online-nav__item ${entry.id === online_data.active_entry_id ? 'is-active' : ''}" type="button" data-online-entry-id="${escapeHtml(entry.id)}">
-        <span>${escapeHtml(entry.title || `页面 @ 楼层 ${entry.message_id}`)}</span>
+        <span>${escapeHtml(getTheaterDisplayTitle(entry) || `页面 @ 楼层 ${entry.message_id}`)}</span>
         <small>楼层 ${escapeHtml(entry.message_id ?? '?')} · ${Math.max(0, entry.variants?.findIndex(variant => variant.id === entry.active_variant_id) ?? 0) + 1}/${entry.variants?.length || 1}</small>
       </button>
     `;

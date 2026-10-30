@@ -584,7 +584,7 @@ async function generateOnlineForCurrentChat(
         appendRunLog('报错', 'API 返回为空，未生成页面。');
         throw Error('API 返回为空，未生成页面。');
       }
-      const parsed = parseOnlineGenerationResult(result, active_prompt.output_mode);
+      const parsed = parseOnlineGenerationResult(result, active_prompt.output_mode, active_detail_prompt_name);
       try {
         saveCurrentOnlineData({
           ...parsed,
