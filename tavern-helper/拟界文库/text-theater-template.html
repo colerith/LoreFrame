@@ -72,7 +72,12 @@
         --pill-btn-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
     }
 
+    html { background-color: var(--bg-base); }
+    html[data-theme="dark"] { color-scheme: dark; }
+    html[data-theme="light"] { color-scheme: light; }
+
     body {
+        background-color: var(--bg-base);
         display: flex;
         justify-content: center;
         align-items: flex-start;

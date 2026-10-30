@@ -61,6 +61,12 @@ function normalizeImageAssetMarkup(html: string) {
       asset.appendChild(status);
     }
   });
+  // Apply to saved text-theatre pages too, without repainting arbitrary HTML theatres.
+  if (document.querySelector('#ryx-card') && document.querySelector('#btn-dark') && document.querySelector('#animated-content')) {
+    const theme_style = document.createElement('style');
+    theme_style.textContent = 'html, body { background-color: var(--bg-base, #f6ece1) !important; } html[data-theme="dark"] { color-scheme: dark; } html[data-theme="light"] { color-scheme: light; }';
+    document.head.appendChild(theme_style);
+  }
   const scrollbar_style = document.createElement('style');
   scrollbar_style.textContent = '* { scrollbar-width: none !important; } *::-webkit-scrollbar { display:none !important; width:0 !important; height:0 !important; }';
   document.head.appendChild(scrollbar_style);
