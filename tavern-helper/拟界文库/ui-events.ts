@@ -4346,6 +4346,26 @@ const syncImageGenerationSettings = (show_detail = false) => {
         );
       });
 
+      iframe_document.querySelector('[data-base-generation-settings]')?.addEventListener('change', event => {
+        const target = event.target as HTMLInputElement;
+        const settings = getSettings();
+        const config = normalizeRandomBasePrompt(settings.random_base_prompt);
+        if (target.matches('[data-random-base-enabled]')) config.enabled = target.checked;
+        else if (target.matches('[data-random-base-count]')) config.count = normalizeRandomDetailCount(target.value);
+        else if (target.matches('[data-random-base-probability]')) config.trigger_probability = normalizeRandomDetailTriggerProbability(target.value);
+        else if (target.matches('[data-resident-base-id], [data-random-base-id]')) {
+          const resident = target.hasAttribute('data-resident-base-id');
+          const kind = resident ? 'resident' : 'random';
+          const ids = [...iframe_document.querySelectorAll<HTMLInputElement>(`[data-${kind}-base-id]:checked`)]
+            .map(input => input.getAttribute(`data-${kind}-base-id`) || '').filter(Boolean);
+          if (resident) config.resident_ids = ids;
+          else config.prompt_ids = ids;
+        } else return;
+        saveSettings({ ...settings, random_base_prompt: config });
+        renderPromptSettings(iframe_document);
+        updateText(iframe_document, '[data-prompt-settings-detail]', '已保存基础提示词生成设置。');
+      });
+
       random_detail_enabled?.addEventListener('change', () => {
         const settings = getSettings();
         saveSettings({

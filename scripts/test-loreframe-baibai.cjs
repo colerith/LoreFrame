@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const assert = require('node:assert/strict');
 const ts = require('typescript');
-const base = 'src/util/酒馆助手脚本/线上功能脚本/';
+const base = 'src/util/酒馆助手脚本/拟界文库/';
 const host = { location: new URL('https://tavern.example/'), setTimeout, clearTimeout };
 const st = { extensionSettings: {} };
 let calls = [];
@@ -86,7 +86,7 @@ for (const name of ['settings.ts', 'baibai.ts', 'ui-events.ts']) {
   const body = JSON.parse(calls[0].init.body);
   assert.equal(body.parameters.params_version, 4);
   // Compare the actual shipped Electric Phone payload with equivalent settings.
-  const waveSource = fs.readFileSync('.wave-publish/Electric-Phone/tavern-helper/电波手机/services/image/generate.ts', 'utf8');
+  const waveSource = fs.readFileSync('电波手机资源/发布仓库/Electric-Phone/tavern-helper/电波手机/services/image/generate.ts', 'utf8');
   const waveContext = vm.createContext({ exports: {}, require: () => ({}), crypto,
     imagePrompt: () => 'portrait' });
   vm.runInContext(ts.transpileModule(waveSource.slice(waveSource.indexOf('export function novelAiBody'), waveSource.indexOf('export function bytesBase64')), {

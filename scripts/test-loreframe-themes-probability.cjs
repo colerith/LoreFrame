@@ -5,7 +5,7 @@ const ts = require('typescript');
 const { JSDOM } = require('jsdom');
 const dom = new JSDOM('');
 const context = vm.createContext({ DOMParser: dom.window.DOMParser, console });
-const base = 'src/util/酒馆助手脚本/线上功能脚本/';
+const base = 'src/util/酒馆助手脚本/拟界文库/';
 for (const file of ['settings.ts', 'image-routing.ts', 'ui-render.ts']) {
   vm.runInContext(
     ts.transpileModule(fs.readFileSync(base + file, 'utf8'), {

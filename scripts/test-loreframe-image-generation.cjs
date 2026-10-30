@@ -5,7 +5,7 @@ const ts = require('typescript');
 const { JSDOM } = require('jsdom');
 const dom = new JSDOM('<button data-trigger-image-generation><span>生成图片</span></button>');
 const button = dom.window.document.querySelector('button');
-const base = 'src/util/酒馆助手脚本/线上功能脚本/';
+const base = 'src/util/酒馆助手脚本/拟界文库/';
 let html, calls, fail, pending, chat;
 const entry = { id: 'entry', active_variant_id: 'variant' };
 const context = vm.createContext({imageCharacterThinkingPrompt:()=>'',effectiveImageCharacters:()=>[],imageCharacterNames:()=>[],resolveImageCharacterPrompt:image=>({prompt:image.dataset.imagePrompt||'',negative:''}),

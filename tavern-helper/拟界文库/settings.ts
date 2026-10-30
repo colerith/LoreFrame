@@ -284,6 +284,7 @@ type SettingsState = {
   launch_entry_modes: SettingsLaunchEntryMode[];
   excluded_character_names: string[];
   excluded_tags: string[];
+  random_base_prompt: { enabled: boolean; resident_ids: string[]; prompt_ids: string[]; count: number; trigger_probability: number };
   random_detail_prompt: { enabled: boolean; resident_ids: string[]; prompt_ids: string[]; count: number; trigger_probability: number };
   secondary_api: SettingsSecondaryApiConfig;
   secondary_api_profiles: SettingsSecondaryApiProfile[];
@@ -339,7 +340,7 @@ function getDefaultSettings() {
   const base_prompts = [
     {
       id: base_content_id,
-      name: '极光小剧场 @电波系',
+      name: '极光小剧场·交互版 @电波系',
       content: `通用核心规范：
 你会根据故事或上下文嵌入一个 HTML+CSS+JavaScript 深度交互界面。这不仅是文本的载体，更是一个迷你的、可玩的互动装置或伪应用程序。
 
@@ -411,6 +412,11 @@ function getDefaultSettings() {
 的顺序
 -   所有代码必须左对齐，不含任何缩进
 -   DOM策略: 必须在HTML中预渲染所有可能出现的元素（包括弹窗、结果页），默认设为隐藏，利用 JS 切换 class 来控制显示与流程。禁止使用 innerHTML 或 createElement 创建新元素`,
+    },
+    {
+      id: 'base-aurora-theater-text',
+      name: '极光小剧场·文字版 @电波系',
+      content: '- 生成独立于主线之外的纯文本番外（>1000字），必须确保题材互不重复，自由运用特殊字符、Emoji与Markdown（含`>`及`||`）构建差异化的视觉布局\n- 禁用反引号、html/css代码、ASCII 表格、制表符',
     },
     {
       id: 'base-light-page',
@@ -749,6 +755,7 @@ function getDefaultSettings() {
     launch_entry_modes: ['floating_ball'],
     excluded_character_names: [],
     excluded_tags: [...DEFAULT_EXCLUDED_TAGS],
+    random_base_prompt: { enabled: false, resident_ids: [], prompt_ids: [], count: 1, trigger_probability: 100 },
     random_detail_prompt: {
       enabled: false,
       resident_ids: [],
@@ -1530,6 +1537,10 @@ function normalizeSettings(settings: SettingsInput | null | undefined): Settings
     getPublishedBasePromptItems(),
     personal_base_prompts.filter(prompt => prompt.source !== 'default' && prompt.source !== 'published'),
     '未命名基础提示词',
+  ).map(prompt =>
+    prompt.id === 'base-aurora-theater' && prompt.name === '极光小剧场 @电波系'
+      ? { ...prompt, name: '极光小剧场·交互版 @电波系' }
+      : prompt,
   );
   const normalized_detail_prompts = mergePromptItems(
     fallback.detail_prompts,
@@ -1621,6 +1632,7 @@ function normalizeSettings(settings: SettingsInput | null | undefined): Settings
       (settings as { excluded_tags?: unknown } | null | undefined)?.excluded_tags == null
         ? [...fallback.excluded_tags]
         : normalizeStringList((settings as { excluded_tags?: unknown }).excluded_tags, { lowercase: true }),
+    random_base_prompt: normalizeRandomBasePrompt(settings?.random_base_prompt, normalized_base_prompts),
     random_detail_prompt: {
       enabled: Boolean(settings?.random_detail_prompt?.enabled),
       resident_ids: [...new Set(settings?.random_detail_prompt?.resident_ids || [])].filter(id =>
@@ -1935,13 +1947,47 @@ function consumeTemporaryGenerationDetailPrompt() {
   return prompt;
 }
 
+function normalizeRandomBasePrompt(config?: Partial<SettingsState['random_base_prompt']>, prompts?: SettingsPromptItem[]) {
+  const ids = (value: unknown) => Array.isArray(value)
+    ? [...new Set(value.map(String))].filter(id => !prompts || prompts.some(prompt => prompt.id === id))
+    : [];
+  return {
+    enabled: Boolean(config?.enabled),
+    resident_ids: ids(config?.resident_ids),
+    prompt_ids: ids(config?.prompt_ids),
+    count: normalizeRandomDetailCount(config?.count),
+    trigger_probability: normalizeRandomDetailTriggerProbability(config?.trigger_probability),
+  };
+}
+
+function selectGenerationBasePrompts(settings: SettingsState, bypass_probability = false) {
+  const config = normalizeRandomBasePrompt(settings.random_base_prompt, settings.base_prompts);
+  const residents = settings.base_prompts.filter(prompt => config.resident_ids.includes(prompt.id));
+  const resident_ids = new Set(residents.map(prompt => prompt.id));
+  const active = settings.base_prompts.find(prompt => prompt.id === settings.active_base_prompt_id) || settings.base_prompts[0];
+  let optional = active ? [active] : [];
+  if (config.enabled) {
+    optional = [];
+    if (bypass_probability || Math.random() * 100 < config.trigger_probability) {
+      const pool = settings.base_prompts.filter(prompt => config.prompt_ids.includes(prompt.id) && !resident_ids.has(prompt.id));
+      // Fisher–Yates：无放回等概率抽取，常驻项不占名额。
+      for (let i = pool.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+      }
+      optional = pool.slice(0, config.count);
+    }
+  }
+  return [...residents, ...optional.filter(prompt => !resident_ids.has(prompt.id))];
+}
+
 function getGenerationPrompt(
   settings: SettingsState = getSettings(),
   detail_override?: { name?: string; content?: string } | null,
   options: { bypass_trigger_probability?: boolean } = {},
 ) {
-  const active_base =
-    settings.base_prompts.find(prompt => prompt.id === settings.active_base_prompt_id) || settings.base_prompts[0] || {};
+  const selected_base_prompts = selectGenerationBasePrompts(settings, Boolean(options.bypass_trigger_probability));
+  const active_base = selected_base_prompts[0] || {};
   const active_detail =
     settings.detail_prompts.find(prompt => prompt.id === settings.active_detail_prompt_id) || settings.detail_prompts[0] || {};
   if (detail_override?.content?.trim()) {
@@ -1950,6 +1996,8 @@ function getGenerationPrompt(
     return {
       id: active_base.id || '',
       name: `${base_name} + ${detail_name}`,
+      selected_base_prompts,
+      output_mode: active_base.id === 'base-aurora-theater-text' ? 'text' as const : 'html' as const,
       base_prompt_id: active_base.id || '',
       detail_prompt_id: active_detail.id || '',
       base_content: active_base.content || '',
@@ -2016,12 +2064,24 @@ function getGenerationPrompt(
   return {
     id: active_base.id || '',
     name: detail_names.length ? `${base_name} + ${detail_names.join(' / ')}` : base_name,
+    selected_base_prompts,
+    output_mode: active_base.id === 'base-aurora-theater-text' ? 'text' as const : 'html' as const,
     base_prompt_id: active_base.id || '',
     detail_prompt_id: selected_details[0]?.id || active_detail.id || '',
     base_content: active_base.content || '',
     detail_content,
     random_detail_prompt_name: detail_names.join(' / '),
     detail_prompt_debug,
+  };
+}
+
+function getGenerationPromptForBase(batch: ReturnType<typeof getGenerationPrompt>, base: SettingsPromptItemRuntime) {
+  return {
+    ...batch,
+    base_prompt_id: base.id,
+    base_content: base.content,
+    output_mode: base.id === 'base-aurora-theater-text' ? 'text' as const : 'html' as const,
+    name: [base.name, batch.random_detail_prompt_name].filter(Boolean).join(' + '),
   };
 }
 
@@ -2079,6 +2139,7 @@ function saveSettings(settings: SettingsInput | null | undefined) {
       (settings as { excluded_tags?: unknown } | null | undefined)?.excluded_tags == null
         ? [...fallback.excluded_tags]
         : normalizeStringList((settings as { excluded_tags?: unknown }).excluded_tags, { lowercase: true }),
+    random_base_prompt: normalizeRandomBasePrompt(settings?.random_base_prompt),
     random_detail_prompt: {
       enabled: Boolean(settings?.random_detail_prompt?.enabled),
       resident_ids: Array.isArray(settings?.random_detail_prompt?.resident_ids)

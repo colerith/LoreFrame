@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>日月西美化 - 文字剧场 | 默认版 @电波系</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+    :root {
+        --bg-base: #f6ece1;
+        --orb-1: rgba(218, 165, 32, 0.22);
+        --orb-2: rgba(216, 92, 59, 0.18);
+        --orb-3: rgba(255, 255, 255, 0.68);
+
+        --glass-border: rgba(218, 165, 32, 0.34);
+        --glass-shadow: 0 4px 6px rgba(92, 54, 32, 0.1);
+
+        --text-main: #4a3424;
+        --text-muted: #745845;
+        --text-subtle: #b38b6d;
+
+        --glass-element-bg: rgba(255, 255, 255, 0.52);
+        --glass-element-border: rgba(218, 165, 32, 0.24);
+
+        --hl-1: #d85c3b;
+        --hl-2: #b57447;
+        --hl-3: #9f7f63;
+
+        --top-btn-bg: rgba(255, 255, 255, 0.72);
+        --top-btn-border: rgba(218, 165, 32, 0.28);
+        --top-btn-text: #745845;
+        --top-btn-shadow: 0 10px 24px rgba(92, 54, 32, 0.18);
+
+        --bottom-bar-line: rgba(218, 165, 32, 0.22);
+        --pill-btn-bg: rgba(255, 255, 255, 0.56);
+        --pill-btn-border: rgba(218, 165, 32, 0.3);
+        --pill-btn-text: #745845;
+        --pill-btn-hover-bg: rgba(255, 255, 255, 0.85);
+        --pill-btn-shadow: 0 2px 8px rgba(92, 54, 32, 0.08);
+    }
+
+    [data-theme="dark"] {
+        --bg-base: #111821;
+        --orb-1: rgba(143, 182, 217, 0.2);
+        --orb-2: rgba(130, 149, 168, 0.15);
+        --orb-3: rgba(24, 35, 48, 0.85);
+
+        --glass-border: rgba(100, 120, 140, 0.34);
+        --glass-shadow: 0 4px 6px rgba(0, 0, 0, 0.35);
+
+        --text-main: #e2e8f0;
+        --text-muted: #a7b7c7;
+        --text-subtle: #8295a8;
+
+        --glass-element-bg: rgba(255, 255, 255, 0.045);
+        --glass-element-border: rgba(143, 182, 217, 0.2);
+
+        --hl-1: #8fb6d9;
+        --hl-2: #a4c0d8;
+        --hl-3: #b88a9d;
+
+        --top-btn-bg: rgba(188, 207, 235, 0.12);
+        --top-btn-border: rgba(143, 182, 217, 0.24);
+        --top-btn-text: #bfd4f6;
+        --top-btn-shadow: 0 12px 30px rgba(0, 0, 0, 0.32);
+
+        --bottom-bar-line: rgba(143, 182, 217, 0.18);
+        --pill-btn-bg: rgba(255, 255, 255, 0.05);
+        --pill-btn-border: rgba(143, 182, 217, 0.22);
+        --pill-btn-text: #a7b7c7;
+        --pill-btn-hover-bg: rgba(143, 182, 217, 0.14);
+        --pill-btn-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    }
+
+    body {
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        margin: 0;
+        padding: 20px 10px;
+        box-sizing: border-box;
+        font-family: -apple-system, "PingFang SC", "Helvetica Neue", Helvetica, Arial, sans-serif;
+        overflow-x: hidden;
+        overflow-wrap: anywhere;
+    }
+
+    .window {
+        width: 650px;
+        max-width: 100%;
+        background-color: var(--bg-base);
+        border: 1px solid var(--glass-border);
+        box-shadow: var(--glass-shadow);
+        border-radius: 16px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        color: var(--text-main);
+        transition: background-color 0.5s ease, border-color 0.5s ease, color 0.5s ease;
+        position: relative;
+        z-index: 1;
+    }
+
+    .bg-orbs {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 0;
+        overflow: hidden;
+        pointer-events: none;
+    }
+
+    .orb {
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(60px);
+        transition: background-color 0.8s ease;
+        animation: float 20s infinite ease-in-out alternate;
+    }
+    .orb:nth-child(1) { width: 350px; height: 350px; top: -15%; left: -15%; background: var(--orb-1); animation-delay: 0s; }
+    .orb:nth-child(2) { width: 250px; height: 250px; bottom: -10%; right: -10%; background: var(--orb-2); animation-delay: -5s; }
+    .orb:nth-child(3) { width: 450px; height: 450px; top: 25%; left: 15%; background: var(--orb-3); animation-delay: -10s; filter: blur(80px); opacity: 0.7;}
+
+    @keyframes float {
+        0% { transform: translate(0, 0) scale(1); }
+        50% { transform: translate(5%, 5%) scale(1.05); }
+        100% { transform: translate(-5%, 10%) scale(0.95); }
+    }
+
+    .title-bar, .content, .bottom-bar {
+        position: relative;
+        z-index: 1;
+    }
+
+    .title-bar {
+        display: flex;
+        align-items: center;
+        padding: 14px 20px;
+        border-bottom: 1px solid var(--glass-border);
+        flex-shrink: 0;
+        background: transparent;
+    }
+
+    .toolbar-title {
+        color: var(--text-subtle);
+        font-size: 12px;
+        font-weight: 500;
+        letter-spacing: 1px;
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .toolbar-title i { font-size: 10px; opacity: 0.7;}
+
+    .theme-controls {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+    }
+    .theme-btn {
+        background: transparent;
+        border: none;
+        color: var(--text-subtle);
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        transition: all 0.3s ease;
+        outline: none;
+    }
+    .theme-btn:hover {
+        color: var(--text-main);
+        background: var(--glass-element-bg);
+    }
+    .theme-btn.active {
+        color: var(--text-main);
+        background: var(--glass-element-bg);
+        border: 1px solid var(--glass-border);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    .content {
+        padding: 20px 45px 10px;
+        font-size: 15px;
+        line-height: 1.8;
+        letter-spacing: 0.5px;
+        font-weight: 400;
+    }
+
+    .content strong { font-weight: 600; color: var(--text-main); }
+    .content s { text-decoration: line-through; color: var(--text-subtle); }
+    .content em { font-style: italic; color: var(--text-muted); }
+    .content .highlight { font-weight: 500; }
+
+    .content code {
+        background: var(--glass-element-bg);
+        color: var(--text-muted);
+        padding: 3px 8px;
+        border-radius: 6px;
+        font-family: "SF Mono", Menlo, Monaco, Consolas, monospace;
+        font-size: 0.85em;
+        border: 1px solid var(--glass-border);
+    }
+
+    .content .quote-center, .content .highlight-block {
+        text-align: center;
+        background: var(--glass-element-bg);
+        padding: 18px 24px;
+        margin: 20px 0;
+        border-radius: 12px;
+        color: var(--text-muted);
+        border: 1px solid var(--glass-border);
+        box-shadow: inset 0 0 10px rgba(255,255,255,0.05);
+    }
+
+    .content .highlight-block {
+        text-align: justify;
+        border-left: 3px solid var(--text-subtle);
+    }
+
+    .content h1, .content h2, .content h3, .content h4 {
+        margin: 24px 0 12px 0;
+        padding-bottom: 8px;
+        line-height: 1.5;
+        font-weight: 600;
+        color: var(--text-main);
+    }
+    .content h1 { font-size: 1.3em; text-align: center;}
+    .content h2 { font-size: 1.15em; border-bottom: 1px solid var(--glass-border); }
+    .content h3 { font-size: 1.05em; }
+    .content h4 { font-size: 1em; color: var(--text-muted); }
+
+    .content ul { list-style: none; padding-left: 10px; margin: 15px 0; }
+    .content li { position: relative; padding-left: 18px; margin-bottom: 8px; color: var(--text-muted);}
+    .content li::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 11px;
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        background-color: var(--text-subtle);
+        transition: background-color 0.3s ease;
+    }
+
+    .content table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        margin: 24px 0;
+        font-size: 0.9em;
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid var(--glass-border);
+    }
+    .content th, .content td {
+        padding: 12px 16px;
+        text-align: left;
+        border-bottom: 1px solid var(--glass-border);
+        color: var(--text-muted);
+    }
+    .content th { font-weight: 600; color: var(--text-main); background: var(--glass-element-bg); }
+    .content tr:last-child td { border-bottom: none; }
+
+    .content hr {
+        border: none;
+        border-top: 1px solid var(--glass-border);
+        margin: 35px 0;
+    }
+
+    .content .empty-line { height: 20px; }
+
+    .bottom-bar {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 4px 20px 18px;
+        margin-top: 0;
+    }
+
+    .to-top-btn {
+        background: var(--pill-btn-bg);
+        border: 1px solid var(--pill-btn-border);
+        color: var(--pill-btn-text);
+        padding: 6px 18px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        box-shadow: var(--pill-btn-shadow);
+        transition: all 0.25s ease;
+        outline: none;
+    }
+
+    .to-top-btn:hover {
+        background: var(--pill-btn-hover-bg);
+        color: var(--text-main);
+        transform: translateY(-1px);
+        border-color: var(--hl-1);
+    }
+
+    .to-top-btn:active {
+        transform: translateY(1px);
+    }
+
+    .back-to-top {
+        position: fixed;
+        right: 24px;
+        bottom: 28px;
+        width: 44px;
+        height: 44px;
+        border: 1px solid var(--top-btn-border);
+        border-radius: 14px;
+        background: var(--top-btn-bg);
+        color: var(--top-btn-text);
+        box-shadow: var(--top-btn-shadow);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(12px);
+        transition: opacity 0.3s ease, transform 0.3s ease, visibility 0.3s ease, color 0.3s ease, background 0.3s ease;
+        z-index: 9999;
+        pointer-events: auto;
+    }
+
+    .back-to-top.show {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0);
+    }
+
+    .back-to-top:hover {
+        transform: translateY(-2px);
+        color: var(--text-main);
+        background: var(--glass-element-bg);
+    }
+
+    .back-to-top:active {
+        transform: translateY(0);
+    }
+
+    @media (max-width: 500px) {
+        .content { padding: 15px 22px 8px; font-size: 14px; }
+        .bottom-bar { padding: 2px 16px 14px; }
+        .window { border-radius: 12px; }
+        .back-to-top {
+            right: 16px;
+            bottom: 20px;
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+        }
+    }
+</style>
+</head>
+<body>
+
+<div class="window" id="ryx-card">
+    <div class="bg-orbs">
+        <div class="orb"></div>
+        <div class="orb"></div>
+        <div class="orb"></div>
+    </div>
+
+    <div class="title-bar">
+        <span class="toolbar-title" id="current-time">
+            <i class="fa-solid fa-sun"></i> Amaterasu
+        </span>
+        <div class="theme-controls">
+            <button class="theme-btn" id="btn-auto" title="时间自动切换 (晚6-早6)"><i class="fa-solid fa-star-of-david"></i></button>
+            <button class="theme-btn" id="btn-light" title="日间模式"><i class="fa-solid fa-sun"></i></button>
+            <button class="theme-btn" id="btn-dark" title="夜间模式"><i class="fa-solid fa-moon"></i></button>
+        </div>
+    </div>
+
+    <div class="content" id="animated-content" data-online-memory></div>
+
+    <div class="bottom-bar">
+        <button class="to-top-btn" id="bottom-to-top" type="button" aria-label="回到剧场顶部">
+            <i class="fa-solid fa-arrow-up"></i>
+            <span>回到顶部</span>
+        </button>
+    </div>
+</div>
+
+<button class="back-to-top" id="back-to-top" type="button" aria-label="回到顶部" title="回到顶部">
+    <i class="fa-solid fa-chevron-up"></i>
+</button>
+
+<script>
+(function() {
+    const cardContainer = document.getElementById('ryx-card');
+    const themeAutoBtn = document.getElementById('btn-auto');
+    const themeLightBtn = document.getElementById('btn-light');
+    const themeDarkBtn = document.getElementById('btn-dark');
+    const currentTimeLabel = document.getElementById('current-time');
+    const backToTopBtn = document.getElementById('back-to-top');
+    const bottomToTopBtn = document.getElementById('bottom-to-top');
+    let activeScrollTarget = window;
+
+    function updateTopThemeLabel(resolvedTheme) {
+        if (!currentTimeLabel) return;
+        if (resolvedTheme === 'dark') {
+            currentTimeLabel.innerHTML = '<i class="fa-solid fa-moon"></i> Tsukuyomi';
+        } else {
+            currentTimeLabel.innerHTML = '<i class="fa-solid fa-sun"></i> Amaterasu';
+        }
+    }
+
+    function getUTC8Hour() {
+        const d = new Date();
+        const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
+        const utc8 = new Date(utc + (3600000 * 8));
+        return utc8.getHours();
+    }
+
+    function isNightTimeInUTC8() {
+        const hour = getUTC8Hour();
+        return hour >= 18 || hour < 6;
+    }
+
+    function setTheme(theme) {
+        let resolvedTheme = 'light';
+        if (theme === 'auto') {
+            const isNight = isNightTimeInUTC8();
+            resolvedTheme = isNight ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', resolvedTheme);
+        } else {
+            resolvedTheme = theme;
+            document.documentElement.setAttribute('data-theme', theme);
+        }
+        try {
+            localStorage.setItem('yuedu-theme', theme);
+        } catch(e) {}
+        updateTopThemeLabel(resolvedTheme);
+
+        [themeAutoBtn, themeLightBtn, themeDarkBtn].forEach(btn => {
+            if (btn) btn.classList.remove('active');
+        });
+        if (theme === 'auto' && themeAutoBtn) themeAutoBtn.classList.add('active');
+        if (theme === 'light' && themeLightBtn) themeLightBtn.classList.add('active');
+        if (theme === 'dark' && themeDarkBtn) themeDarkBtn.classList.add('active');
+    }
+
+    const themeTimer = setInterval(() => {
+        let stored = 'auto';
+        try { stored = localStorage.getItem('yuedu-theme') || 'auto'; } catch(e) {}
+        if (stored === 'auto') {
+            const isNight = isNightTimeInUTC8();
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const targetTheme = isNight ? 'dark' : 'light';
+            if (currentTheme !== targetTheme) {
+                document.documentElement.setAttribute('data-theme', targetTheme);
+                updateTopThemeLabel(targetTheme);
+            }
+        }
+    }, 60000);
+    window.addEventListener('pagehide', () => clearInterval(themeTimer), { once: true });
+
+    if (themeAutoBtn) themeAutoBtn.addEventListener('click', () => setTheme('auto'));
+    if (themeLightBtn) themeLightBtn.addEventListener('click', () => setTheme('light'));
+    if (themeDarkBtn) themeDarkBtn.addEventListener('click', () => setTheme('dark'));
+
+    let savedTheme = 'auto';
+    try { savedTheme = localStorage.getItem('yuedu-theme') || 'auto'; } catch(e) {}
+    setTheme(savedTheme);
+
+    function findScrollParent(element) {
+        let parent = element ? element.parentElement : null;
+        while (parent) {
+            const style = window.getComputedStyle(parent);
+            const overflowY = style.overflowY;
+            if ((overflowY === 'auto' || overflowY === 'scroll') && parent.scrollHeight > parent.clientHeight + 20) {
+                return parent;
+            }
+            parent = parent.parentElement;
+        }
+        return window;
+    }
+
+    function getScrollMetrics(target) {
+        if (target && target !== window) {
+            return {
+                top: target.scrollTop,
+                max: target.scrollHeight - target.clientHeight
+            };
+        }
+        const doc = document.scrollingElement || document.documentElement;
+        return {
+            top: window.pageYOffset || doc.scrollTop || 0,
+            max: doc.scrollHeight - window.innerHeight
+        };
+    }
+
+    function executeSmoothScrollTop() {
+        if (cardContainer && typeof cardContainer.scrollIntoView === 'function') {
+            cardContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            return;
+        }
+        if (activeScrollTarget && activeScrollTarget !== window) {
+            activeScrollTarget.scrollTo({ top: 0, behavior: 'smooth' });
+            return;
+        }
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function toggleBackToTopButton() {
+        if (!backToTopBtn) return;
+        const { top, max } = getScrollMetrics(activeScrollTarget);
+        backToTopBtn.classList.toggle('show', max > 120 && top > 80);
+    }
+
+    if (backToTopBtn) {
+        backToTopBtn.addEventListener('click', executeSmoothScrollTop);
+    }
+
+    if (bottomToTopBtn) {
+        bottomToTopBtn.addEventListener('click', executeSmoothScrollTop);
+    }
+
+    const animatedContent = document.getElementById('animated-content');
+    const highlightVars = ['var(--hl-1)', 'var(--hl-2)', 'var(--hl-3)'];
+
+    const applyCode = (t) => t.replace(/`(.*?)`/g, (m, c) => `<code>${c}</code>`);
+    const applyBold = (t) => t.replace(/\*\*(.*?)\*\*/g, (m, c) => `<strong>${c}</strong>`);
+    const applyStrikethrough = (t) => t.replace(/\~\~(.*?)\~\~|<del>(.*?)<\/del>/g, (m, c1, c2) => `<s>${c1 || c2}</s>`);
+    const applyItalic = (t) => t.replace(/\*(.*?)\*/g, (m, c) => `<em>${c}</em>`);
+    const applyHighlight = (t) => t.replace(/(\[.*?\]|\(.*?\)|&quot;.*?&quot;|“.*?”)/g, (m) => {
+        const randomColor = highlightVars[Math.floor(Math.random() * highlightVars.length)];
+        return `<span class="highlight" style="color: ${randomColor};">${m}</span>`;
+    });
+
+    function parseInlineMarkdown(text) {
+        const escaped = String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        return applyItalic(applyStrikethrough(applyBold(applyCode(applyHighlight(escaped)))));
+    }
+
+    function parseContent(lines) {
+        const htmlChunks = [];
+        let i = 0;
+
+        const isTableSeparator = (line) => /^\|(?:\s*:?-+:?\s*\|)+$/.test(line);
+
+        while (i < lines.length) {
+            const trimmedLine = lines[i].trim();
+
+            if (i + 1 < lines.length && isTableSeparator(lines[i + 1].trim())) {
+                const tableData = { headers: [], alignments: [], rows: [] };
+                tableData.alignments = lines[i + 1].trim().split('|').slice(1, -1).map(s => {
+                    const align = s.trim();
+                    if (align.startsWith(':') && align.endsWith(':')) return 'center';
+                    if (align.endsWith(':')) return 'right';
+                    return 'left';
+                });
+                tableData.headers = lines[i].trim().split('|').slice(1, -1).map(s => s.trim());
+                let rowIndex = i + 2;
+                while (rowIndex < lines.length && lines[rowIndex].trim().startsWith('|')) {
+                    tableData.rows.push(lines[rowIndex].trim().split('|').slice(1, -1).map(s => s.trim()));
+                    rowIndex++;
+                }
+                let tableHTML = '<table><thead><tr>';
+                tableData.headers.forEach((h, idx) => { tableHTML += `<th style="text-align: ${tableData.alignments[idx]};">${parseInlineMarkdown(h)}</th>`; });
+                tableHTML += '</tr></thead><tbody>';
+                tableData.rows.forEach(r => {
+                    tableHTML += '<tr>';
+                    r.forEach((c, idx) => { tableHTML += `<td style="text-align: ${tableData.alignments[idx]};">${parseInlineMarkdown(c)}</td>`; });
+                    tableHTML += '</tr>';
+                });
+                tableHTML += '</tbody></table>';
+                htmlChunks.push(tableHTML);
+                i = rowIndex;
+
+            } else if (trimmedLine.startsWith('>')) {
+                const quoteGroup = [];
+                let currentIndex = i;
+                while (currentIndex < lines.length && lines[currentIndex].trim().startsWith('>')) {
+                    quoteGroup.push(lines[currentIndex].trim());
+                    currentIndex++;
+                }
+                const nestedLines = quoteGroup.map(line => line.substring(line.indexOf('>') + 1));
+                const innerHtml = parseContent(nestedLines).join('');
+                htmlChunks.push(`<div class="quote-center">${innerHtml}</div>`);
+                i = currentIndex;
+
+            } else if (trimmedLine.startsWith('||')) {
+                const groupedRawInnerLines = [];
+                let currentIndex = i;
+                while (currentIndex < lines.length && lines[currentIndex].trim().startsWith('||')) {
+                    const currentBlockLine = lines[currentIndex].trim();
+                    let rawInnerLine = currentBlockLine.substring(2);
+                    let cleanedInnerLine = rawInnerLine.replace(/\|\|/g, '');
+                    groupedRawInnerLines.push(cleanedInnerLine);
+                    currentIndex++;
+                }
+                const parsedInnerHtml = parseContent(groupedRawInnerLines).join('');
+                htmlChunks.push(`<div class="highlight-block">${parsedInnerHtml}</div>`);
+                i = currentIndex;
+
+            } else if (/^[-*+]\s/.test(trimmedLine)) {
+                const listItems = [];
+                let currentIndex = i;
+                while (currentIndex < lines.length && /^[-*+]\s/.test(lines[currentIndex].trim())) {
+                    listItems.push(lines[currentIndex].trim().substring(2));
+                    currentIndex++;
+                }
+                htmlChunks.push(`<ul>${listItems.map(item => `<li>${parseInlineMarkdown(item)}</li>`).join('')}</ul>`);
+                i = currentIndex;
+
+            } else if (/^---+\s*$/.test(trimmedLine)) {
+                htmlChunks.push('<hr>');
+                i++;
+
+            } else {
+                if (trimmedLine === '') {
+                    if (htmlChunks.length === 0 || htmlChunks[htmlChunks.length - 1] !== '<div class="empty-line"></div>') {
+                        htmlChunks.push('<div class="empty-line"></div>');
+                    }
+                } else {
+                    const headingMatch = trimmedLine.match(/^(\#{1,4})\s(.*)/);
+                    if (headingMatch) {
+                        const level = headingMatch[1].length;
+                        const content = headingMatch[2];
+                        htmlChunks.push(`<h${level}>${parseInlineMarkdown(content)}</h${level}>`);
+                    } else {
+                        htmlChunks.push(`<div>${parseInlineMarkdown(trimmedLine)}</div>`);
+                    }
+                }
+                i++;
+            }
+        }
+        return htmlChunks;
+    }
+
+    const rawContent = __LOREFRAME_TEXT_JSON__;
+
+    const initialLines = rawContent.split('\n');
+    const finalHtmlBlocks = parseContent(initialLines);
+
+    if (animatedContent) {
+        animatedContent.innerHTML = finalHtmlBlocks.join('');
+    }
+
+    activeScrollTarget = findScrollParent(animatedContent);
+    activeScrollTarget.addEventListener('scroll', toggleBackToTopButton, { passive: true });
+    window.addEventListener('scroll', toggleBackToTopButton, { passive: true });
+    window.addEventListener('resize', toggleBackToTopButton);
+    requestAnimationFrame(toggleBackToTopButton);
+})();
+</script>
+</body>
+</html>

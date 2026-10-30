@@ -352,7 +352,7 @@ async function generateOnlineForCurrentChat(
   }
   const temporary_detail_prompt = consumeTemporaryGenerationDetailPrompt();
   const bypass_detail_probability = reason === '重新生成' || reason.startsWith('手动重新生成');
-  const active_prompt = getGenerationPrompt(
+  const batch_prompt = getGenerationPrompt(
     settings,
     temporary_detail_prompt
       ? {
@@ -362,6 +362,17 @@ async function generateOnlineForCurrentChat(
       : null,
     { bypass_trigger_probability: bypass_detail_probability },
   );
+  const active_prompt = batch_prompt;
+  if (!batch_prompt.selected_base_prompts.length) {
+    const config = settings.random_base_prompt;
+    const message = config.enabled && !config.prompt_ids.length
+      ? '随机基础提示词已开启，请先勾选随机范围或常驻项。'
+      : '本次未命中基础提示词生成概率，已跳过生成。';
+    setOnlineStatus(iframe_document, '本次未触发', message);
+    setBubbleGenerationState(iframe_document, 'idle');
+    appendRunLog('监听', message);
+    return;
+  }
   const detail_prompt_debug = active_prompt.detail_prompt_debug || null;
   let should_notify_completion = true;
   if (
@@ -428,6 +439,7 @@ async function generateOnlineForCurrentChat(
   );
   let stream_stop: EventListenerHandle = null;
   let parse_or_save_error_logged = false;
+  let completed_count = 0;
   try {
     const material = await collectOnlineSourceMaterial(target_message_id);
     setOnlineStatus(
@@ -444,161 +456,171 @@ async function generateOnlineForCurrentChat(
         (target_message_id != null ? '；指定楼层 ' + target_message_id : '') +
         '，隐藏楼层及其历史页面不会发送。',
     );
-    const ordered_prompts = buildOnlineOrderedPrompts(material, active_prompt);
-    let streaming_text = '';
-    let active_attempt_generation_id = generation_id;
-    let cancel_attempt_timeout = () => {};
-    const event_api = getEventApi() as EventApi | null;
-    const iframe_events_source =
-      (host_window as Window & { iframe_events?: StreamEventSource }).iframe_events ||
-      (window as Window & { iframe_events?: StreamEventSource }).iframe_events;
-    stream_stop =
-      event_api?.event_on && iframe_events_source?.STREAM_TOKEN_RECEIVED_FULLY
-        ? event_api.event_on(
-            iframe_events_source.STREAM_TOKEN_RECEIVED_FULLY,
-            (text: unknown, event_generation_id: unknown) => {
-              const normalized_event_generation_id = String(event_generation_id || '').trim();
-              if (
-                normalized_event_generation_id &&
-                ![generation_id, active_attempt_generation_id].includes(normalized_event_generation_id)
-              ) {
-                return;
-              }
-              streaming_text = String(text || '');
-              if (streaming_text.length > 0) {
-                cancel_attempt_timeout();
-              }
-              setOnlineStatus(iframe_document, '流式生成中', '已接收 ' + streaming_text.length + ' 字。');
-              if (streaming_text.length > MAX_ONLINE_STREAM_CHARS) {
-                const stop_generation_by_id = getApiFunction('stopGenerationById');
-                if (typeof stop_generation_by_id === 'function') stop_generation_by_id(active_attempt_generation_id);
-              }
-            },
-          )
-        : null;
-    appendRunLog('API', '开始发送 generateRaw 请求。', {
-      generation_id,
-      stream: true,
-      api: describeGenerationApi(secondary_api_config),
-      model: describeGenerationModel(secondary_api_config),
-      prompt_name: active_prompt.name,
-      random_detail_prompt: active_detail_prompt_name || null,
-      detail_prompt_debug,
-      visible_messages: material.message_count,
-      total_messages: material.total_message_count,
-      custom_api: maskGenerationApiConfig(secondary_api_config),
-    });
-    const run_generate_attempt = async (attempt: number) => {
-      const attempt_generation_id = attempt === 0 ? generation_id : `${generation_id}-retry-${attempt + 1}`;
-      active_attempt_generation_id = attempt_generation_id;
-      const timeout_ms = retry_settings.enabled ? retry_settings.timeout_ms : 0;
-      const stop_generation_by_id = getApiFunction('stopGenerationById') as ((id: string) => void) | undefined;
-      const request = generate_raw({
-        generation_id: attempt_generation_id,
-        should_stream: true,
-        should_silence: true,
-        ordered_prompts,
-        custom_api: secondary_api_config || undefined,
+    for (const [base_index, base_prompt] of batch_prompt.selected_base_prompts.entries()) {
+      const active_prompt = getGenerationPromptForBase(batch_prompt, base_prompt);
+      const item_generation_id = `${generation_id}-base-${base_index + 1}`;
+      setOnlineStatus(iframe_document, '生成中', `基础提示词 ${base_index + 1}/${batch_prompt.selected_base_prompts.length}：${base_prompt.name}`);
+      const ordered_prompts = buildOnlineOrderedPrompts(material, active_prompt);
+      let streaming_text = '';
+      let active_attempt_generation_id = item_generation_id;
+      let cancel_attempt_timeout = () => {};
+      const event_api = getEventApi() as EventApi | null;
+      const iframe_events_source =
+        (host_window as Window & { iframe_events?: StreamEventSource }).iframe_events ||
+        (window as Window & { iframe_events?: StreamEventSource }).iframe_events;
+      stream_stop =
+        event_api?.event_on && iframe_events_source?.STREAM_TOKEN_RECEIVED_FULLY
+          ? event_api.event_on(
+              iframe_events_source.STREAM_TOKEN_RECEIVED_FULLY,
+              (text: unknown, event_generation_id: unknown) => {
+                const normalized_event_generation_id = String(event_generation_id || '').trim();
+                if (
+                  normalized_event_generation_id &&
+                  normalized_event_generation_id !== active_attempt_generation_id
+                ) {
+                  return;
+                }
+                streaming_text = String(text || '');
+                if (streaming_text.length > 0) {
+                  cancel_attempt_timeout();
+                }
+                setOnlineStatus(iframe_document, '流式生成中', '已接收 ' + streaming_text.length + ' 字。');
+                if (streaming_text.length > MAX_ONLINE_STREAM_CHARS) {
+                  const stop_generation_by_id = getApiFunction('stopGenerationById');
+                  if (typeof stop_generation_by_id === 'function') stop_generation_by_id(active_attempt_generation_id);
+                }
+              },
+            )
+          : null;
+      appendRunLog('API', '开始发送 generateRaw 请求。', {
+        generation_id,
+        stream: true,
+        api: describeGenerationApi(secondary_api_config),
+        model: describeGenerationModel(secondary_api_config),
+        prompt_name: active_prompt.name,
+        random_detail_prompt: active_detail_prompt_name || null,
+        detail_prompt_debug,
+        visible_messages: material.message_count,
+        total_messages: material.total_message_count,
+        custom_api: maskGenerationApiConfig(secondary_api_config),
       });
-      if (!timeout_ms) {
-        cancel_attempt_timeout = () => {};
-        return request;
-      }
-      let timeout_timer = 0;
-      const clear_timeout = () => {
-        if (timeout_timer) {
-          host_window.clearTimeout(timeout_timer);
-          timeout_timer = 0;
+      const run_generate_attempt = async (attempt: number) => {
+        const attempt_generation_id = attempt === 0 ? item_generation_id : `${item_generation_id}-retry-${attempt + 1}`;
+        active_attempt_generation_id = attempt_generation_id;
+        const timeout_ms = retry_settings.enabled ? retry_settings.timeout_ms : 0;
+        const stop_generation_by_id = getApiFunction('stopGenerationById') as ((id: string) => void) | undefined;
+        const request = generate_raw({
+          generation_id: attempt_generation_id,
+          should_stream: true,
+          should_silence: true,
+          ordered_prompts,
+          custom_api: secondary_api_config || undefined,
+        });
+        if (!timeout_ms) {
+          cancel_attempt_timeout = () => {};
+          return request;
+        }
+        let timeout_timer = 0;
+        const clear_timeout = () => {
+          if (timeout_timer) {
+            host_window.clearTimeout(timeout_timer);
+            timeout_timer = 0;
+          }
+        };
+        const timeout_request = new Promise((_, reject) => {
+          timeout_timer = host_window.setTimeout(() => {
+            if (streaming_text.trim().length > 0) {
+              return;
+            }
+            if (typeof stop_generation_by_id === 'function') {
+              stop_generation_by_id(attempt_generation_id);
+            }
+            reject(Error(`生成请求超时（${timeout_ms}ms 内仍为 0 token）`));
+          }, timeout_ms);
+        });
+        cancel_attempt_timeout = clear_timeout;
+        try {
+          return await Promise.race([request, timeout_request]);
+        } finally {
+          cancel_attempt_timeout = () => {};
+          clear_timeout();
         }
       };
-      const timeout_request = new Promise((_, reject) => {
-        timeout_timer = host_window.setTimeout(() => {
-          if (streaming_text.trim().length > 0) {
-            return;
+      let result: unknown = '';
+      let last_error: unknown = null;
+      const total_attempts = retry_settings.enabled ? retry_settings.max_retries + 1 : 1;
+      for (let attempt = 0; attempt < total_attempts; attempt += 1) {
+        try {
+          if (attempt > 0) {
+            setOnlineStatus(
+              iframe_document,
+              '自动重试中',
+              `第 ${attempt + 1}/${total_attempts} 次尝试，原因：${formatErrorForDisplay(last_error) || '上次请求失败'}。`,
+            );
+            appendRunLog('API', '开始自动重试。', {
+              attempt: attempt + 1,
+              total_attempts,
+              error: formatErrorForDisplay(last_error),
+            });
           }
-          if (typeof stop_generation_by_id === 'function') {
-            stop_generation_by_id(attempt_generation_id);
+          result = await run_generate_attempt(attempt);
+          last_error = null;
+          break;
+        } catch (error) {
+          last_error = error;
+          if (attempt >= total_attempts - 1) {
+            throw error;
           }
-          reject(Error(`生成请求超时（${timeout_ms}ms 内仍为 0 token）`));
-        }, timeout_ms);
-      });
-      cancel_attempt_timeout = clear_timeout;
-      try {
-        return await Promise.race([request, timeout_request]);
-      } finally {
-        cancel_attempt_timeout = () => {};
-        clear_timeout();
-      }
-    };
-    let result: unknown = '';
-    let last_error: unknown = null;
-    const total_attempts = retry_settings.enabled ? retry_settings.max_retries + 1 : 1;
-    for (let attempt = 0; attempt < total_attempts; attempt += 1) {
-      try {
-        if (attempt > 0) {
-          setOnlineStatus(
-            iframe_document,
-            '自动重试中',
-            `第 ${attempt + 1}/${total_attempts} 次尝试，原因：${formatErrorForDisplay(last_error) || '上次请求失败'}。`,
-          );
-          appendRunLog('API', '开始自动重试。', {
-            attempt: attempt + 1,
-            total_attempts,
-            error: formatErrorForDisplay(last_error),
-          });
         }
-        result = await run_generate_attempt(attempt);
-        last_error = null;
-        break;
+      }
+      appendRunLog(
+        'API',
+        '返回内容预览（原始回复）。',
+        typeof result === 'string' ? result : JSON.stringify(result, null, 2),
+        { collapsed: true, full_detail: true },
+      );
+      if (!String(result || '').trim()) {
+        parse_or_save_error_logged = true;
+        appendRunLog('报错', 'API 返回为空，未生成页面。');
+        throw Error('API 返回为空，未生成页面。');
+      }
+      const parsed = parseOnlineGenerationResult(result, active_prompt.output_mode);
+      try {
+        saveCurrentOnlineData({
+          ...parsed,
+          message_id: material.latest_message_id,
+          swipe_id: material.latest_swipe_id,
+          source_message_signature: material.latest_message_signature,
+          entry_key: material.latest_message_key,
+          message_count: material.message_count,
+          prompt_name: active_prompt.name,
+          detail_prompt_name: active_detail_prompt_name,
+        });
       } catch (error) {
-        last_error = error;
-        if (attempt >= total_attempts - 1) {
-          throw error;
-        }
+        parse_or_save_error_logged = true;
+        appendRunLog('报错', '解析或保存异常。', formatErrorForDisplay(error));
+        throw error;
+      }
+      completed_count += 1;
+      recordDetailPromptActivation(active_detail_prompt_name, active_prompt.name, material.latest_message_id);
+      renderOnlineContent(iframe_document);
+      switchMainView(iframe_document, 'online');
+      stopEventListener(stream_stop);
+      stream_stop = null;
+      // Finish images for this saved variant before the next variant becomes active.
+      if (active_prompt.output_mode !== 'text') {
+        await generateOnlineImages(iframe_document, true).catch(error => {
+          appendImageGenerationLog('错误', '自动生图启动失败，可点击生成图片重试', error);
+        });
       }
     }
-    appendRunLog(
-      'API',
-      '返回内容预览（原始回复）。',
-      typeof result === 'string' ? result : JSON.stringify(result, null, 2),
-      { collapsed: true, full_detail: true },
-    );
-    if (!String(result || '').trim()) {
-      parse_or_save_error_logged = true;
-      appendRunLog('报错', 'API 返回为空，未生成页面。');
-      throw Error('API 返回为空，未生成页面。');
-    }
-    const parsed = parseOnlineGenerationResult(result);
-    let saved;
-    try {
-      saved = saveCurrentOnlineData({
-        ...parsed,
-        message_id: material.latest_message_id,
-        swipe_id: material.latest_swipe_id,
-        source_message_signature: material.latest_message_signature,
-        entry_key: material.latest_message_key,
-        message_count: material.message_count,
-        prompt_name: active_prompt.name,
-        detail_prompt_name: active_detail_prompt_name,
-      });
-    } catch (error) {
-      parse_or_save_error_logged = true;
-      appendRunLog('报错', '解析或保存异常。', formatErrorForDisplay(error));
-      throw error;
-    }
-    setOnlineStatus(iframe_document, '生成完成', '已保存到当前聊天：' + formatTime(new Date(saved.updated_at)));
+    setOnlineStatus(iframe_document, '生成完成', `已生成并保存 ${batch_prompt.selected_base_prompts.length} 个剧场，可用左右箭头分别查看。`);
     markGenerationFinished(iframe_document, 'success', '生成完成');
-    recordDetailPromptActivation(active_detail_prompt_name, active_prompt.name, material.latest_message_id);
     if (should_notify_completion) {
-      showHostEchoToast('小剧场生成完成，已写入当前聊天。', 'success');
+      showHostEchoToast(`已生成 ${batch_prompt.selected_base_prompts.length} 个剧场，使用左右箭头切换查看。`, 'success');
     }
-    renderOnlineContent(iframe_document);
-    switchMainView(iframe_document, 'online');
-    void generateOnlineImages(iframe_document, true).catch(error => {
-      appendImageGenerationLog('错误', '自动生图启动失败，可点击生成图片重试', error);
-    });
   } catch (error) {
-    setOnlineStatus(iframe_document, '生成失败', formatErrorForDisplay(error));
+    setOnlineStatus(iframe_document, '生成失败', (completed_count ? `已保留 ${completed_count} 个已完成剧场；后续生成失败：` : '') + formatErrorForDisplay(error));
     markGenerationFinished(iframe_document, 'error', '生成失败', formatErrorForDisplay(error));
     if (!parse_or_save_error_logged) appendRunLog('报错', 'API 抛错。', formatErrorForDisplay(error));
     console.error('[LoreFrame] 页面生成失败', error);

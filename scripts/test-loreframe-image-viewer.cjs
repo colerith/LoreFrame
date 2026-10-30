@@ -1,7 +1,7 @@
 const fs=require('fs'),vm=require('vm'),ts=require('typescript'),assert=require('assert/strict'),{JSDOM}=require('jsdom');
 const dom=new JSDOM('<body><div class="online-preview-shell"></div></body>',{url:'https://fixture.local'});const doc=dom.window.document;
 dom.window.HTMLDialogElement.prototype.showModal=function(){this.open=true;};dom.window.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new dom.window.Event('close'));};
-const base='src/util/酒馆助手脚本/线上功能脚本/';
+const base='src/util/酒馆助手脚本/拟界文库/';
 let html='<figure data-image-asset><img data-image-prompt="tea" src="data:image/png;base64,AAAA" data-image-generation-complete="true"><figcaption data-image-generation-status>生图提示词已识别</figcaption></figure>';
 const entry={id:'e',active_variant_id:'v'};const ctx=vm.createContext({imageCharacterThinkingPrompt:()=>'',effectiveImageCharacters:()=>[],imageCharacterNames:()=>[],resolveImageCharacterPrompt:image=>({prompt:image.dataset.imagePrompt||'',negative:''}),DOMParser:dom.window.DOMParser,console,Map,Date,Math,
  getCurrentOnlineData:()=>({active_entry:entry}),getEntryActiveVariant:()=>({id:'v',html}),getCurrentOnlineScopeInfo:()=>({scope_key:'scope'}),getCurrentChatStorageLabel:()=> 'chat',

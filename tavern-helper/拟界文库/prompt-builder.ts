@@ -16,6 +16,7 @@ type PromptViewerMaterial = {
 type PromptViewerConfig = {
   name?: string;
   base_content?: string;
+  output_mode?: 'text' | 'html';
   detail_content?: string;
   random_detail_prompt_name?: string;
   detail_prompt_debug?: {
@@ -99,10 +100,19 @@ function stripOnlineThinkingBlocks(text: unknown) {
     .trim();
 }
 
-function parseOnlineGenerationResult(result: unknown) {
+function parseOnlineGenerationResult(result: unknown, output_mode: 'text' | 'html' = 'html') {
   const text = typeof result === 'string' ? result : JSON.stringify(result);
   const cleaned_text = stripOnlineThinkingBlocks(text);
   const trimmed = cleaned_text.trim();
+  if (output_mode === 'text') {
+    if (!trimmed) throw Error('文字剧场正文为空');
+    const payload = JSON.stringify(trimmed).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026');
+    return {
+      html: TEXT_THEATER_TEMPLATE.replace('__LOREFRAME_TEXT_JSON__', () => payload),
+      memory_text: sanitizeMemoryText(trimmed),
+      raw_result: cleaned_text,
+    };
+  }
   const tagged_result = parseTaggedHtmlGenerationResult(trimmed);
   if (tagged_result) {
     return {
@@ -278,6 +288,19 @@ function buildOnlineOrderedPrompts(
   material: PromptViewerMaterial,
   custom_prompt: PromptViewerConfig,
 ): PromptViewerMessage[] {
+  if (custom_prompt.output_mode === 'text') {
+    return [
+      { role: 'system', content: '你是一名番外故事作者。根据所给背景与提示词创作独立于主线的纯文本剧场，拓展新内容，不复述原文。只输出正文，不输出思考过程、HTML、CSS、JavaScript或代码围栏。使用 Markdown、Emoji、> 引用和 || 高亮块排版；视觉模板由客户端提供。' },
+      { role: 'user', content: [
+        material.world_info,
+        material.chat_history || '<ChatHistory>暂无历史对话。</ChatHistory>',
+        material.last_chat,
+        custom_prompt.base_content,
+        custom_prompt.detail_content,
+        '本轮输出格式：纯文本 Markdown 番外，超过1000字。若内容提示词含有网页或交互要求，将其转写成文字叙事；不要生成 HTML/CSS/JS、反引号、ASCII 表格或制表符。只输出正文。',
+      ].filter(Boolean).join('\n\n') },
+    ];
+  }
   const detail_prompt_debug = custom_prompt.detail_prompt_debug || {};
   const detail_prompt_attached = Boolean(String(custom_prompt.detail_content || '').trim());
   const detail_prompt_mode = detail_prompt_debug.mode === 'random' ? '随机生成' : '固定小剧场';
@@ -381,7 +404,9 @@ async function renderPromptViewer(iframe_document: Document, reason = '手动刷
     const settings = getSettings();
     const active_prompt = getGenerationPrompt(settings);
     const material = await collectOnlineSourceMaterial();
-    const ordered_prompts = buildOnlineOrderedPrompts(material, active_prompt);
+    const ordered_prompts = active_prompt.selected_base_prompts.flatMap(base =>
+      buildOnlineOrderedPrompts(material, getGenerationPromptForBase(active_prompt, base)),
+    );
     const api_config = buildSecondaryApiConfig(settings);
     const api_description = describeGenerationApi(api_config);
     const model_description = describeGenerationModel(api_config);
@@ -397,7 +422,7 @@ async function renderPromptViewer(iframe_document: Document, reason = '手动刷
       status.textContent = '已生成预览';
     }
     if (summary) {
-      summary.textContent = `提示词预览：${ordered_prompts.length} 段，约 ${total_chars} 字；可见楼层 ${material.message_count} / 全部楼层 ${material.total_message_count}；${api_description} / ${model_description}。`;
+      summary.textContent = `提示词预览：${active_prompt.selected_base_prompts.length} 个独立生成请求，${ordered_prompts.length} 段，约 ${total_chars} 字；可见楼层 ${material.message_count} / 全部楼层 ${material.total_message_count}；${api_description} / ${model_description}。`;
     }
     updateHtml(
       iframe_document,

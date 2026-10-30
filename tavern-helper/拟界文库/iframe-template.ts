@@ -5608,6 +5608,22 @@ function buildIframeHtml() {
                             </div>
                           </section>
 
+                          <section class="settings-card is-random" data-base-generation-settings>
+                            <div class="settings-card__head">
+                              <h3>基础提示词生成设置</h3>
+                              <label class="checkbox-row"><input type="checkbox" data-random-base-enabled /><span>随机生成</span></label>
+                            </div>
+                            <p class="settings-card__note">常驻项每次都生成，不占随机名额。开启随机后从勾选范围抽取，概率只控制随机部分；关闭随机时使用当前选中项，与常驻去重。每个基础提示词分别生成，使用剧场左右箭头切换查看。</p>
+                            <strong>常驻基础提示词（可多选）</strong>
+                            <div class="random-prompt-list" data-resident-base-list></div>
+                            <strong>随机范围（可多选）</strong>
+                            <div class="random-prompt-list" data-random-base-list></div>
+                            <div class="appearance-theme-schedule">
+                              <label class="field">额外随机基础提示词数<input class="input" type="number" min="1" max="10" step="1" data-random-base-count /></label>
+                              <label class="field">触发概率（%）<input class="input" type="number" min="0" max="100" step="1" data-random-base-probability /></label>
+                            </div>
+                          </section>
+
                           <section class="settings-card">
                             <div class="settings-card__head">
                               <h3>小剧场内容</h3>

@@ -1,5 +1,5 @@
 const fs=require('fs'),vm=require('vm'),ts=require('typescript'),assert=require('assert/strict');
-const base='src/util/酒馆助手脚本/线上功能脚本/';
+const base='src/util/酒馆助手脚本/拟界文库/';
 function load(c,file,names){const s=fs.readFileSync(base+file,'utf8'),a=ts.createSourceFile(file,s,ts.ScriptTarget.Latest,true);const text=names?a.statements.filter(n=>ts.isFunctionDeclaration(n)&&names.includes(n.name.text)).map(n=>n.getText(a)).join('\n'):s;vm.runInContext(ts.transpileModule(text,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,c);}
 (async()=>{
 const original={entries:[{id:'e',message_id:12,variants:[{id:'v',html:'<p>剧场<img src="data:image/png;base64,YQ=="></p>'}]}],scope:{scope_key:'s'},chat_aliases:['chat-file'],payload_storage:'indexeddb',payload_key:'s/old'};

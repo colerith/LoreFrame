@@ -1,4 +1,5 @@
 import { unzipSync } from 'fflate';
+import textTheaterTemplate from './text-theater-template.html?raw';
 import constantsSource from './constants?raw';
 import stateSource from './state?raw';
 import typesSource from './types?raw';
@@ -43,6 +44,7 @@ const APP_REMIX_AUTHOR = ${JSON.stringify(loreFrameBranding.remixAuthor)};
 
 const onlineFeatureParts = [
   ['branding.ts', brandingSource],
+  ['text-theater-template', `const TEXT_THEATER_TEMPLATE = ${JSON.stringify(textTheaterTemplate)};`],
   ['constants.ts', constantsSource],
   ['state.ts', stateSource],
   ['types.ts', typesSource],

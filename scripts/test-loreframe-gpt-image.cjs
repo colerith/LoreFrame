@@ -3,7 +3,7 @@ const vm = require('node:vm');
 const assert = require('node:assert/strict');
 const ts = require('typescript');
 const { JSDOM } = require('jsdom');
-const base = 'src/util/酒馆助手脚本/线上功能脚本/';
+const base = 'src/util/酒馆助手脚本/拟界文库/';
 let calls = [];
 const context = vm.createContext({imageCharacterThinkingPrompt:()=>'',effectiveImageCharacters:()=>[],imageCharacterNames:()=>[],resolveImageCharacterPrompt:image=>({prompt:image.dataset.imagePrompt||'',negative:''}),
   URL,

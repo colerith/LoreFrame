@@ -1,5 +1,5 @@
 const fs=require('fs'),vm=require('vm'),ts=require('typescript'),assert=require('assert/strict');
-const file='src/util/酒馆助手脚本/线上功能脚本/online-store.ts';
+const file='src/util/酒馆助手脚本/拟界文库/online-store.ts';
 const source=fs.readFileSync(file,'utf8');const ast=ts.createSourceFile(file,source,ts.ScriptTarget.Latest,true);
 const names=['createOnlineDataStorageSnapshot','createOnlineEntryStorageSnapshot','createOnlineVariantStorageSnapshot','createOnlineVariantMetaSnapshot','saveOnlineData','writeOnlinePayloadRecord','readOnlinePayloadRecord','recoverMissingOnlineSnapshot'];
 const code=ast.statements.filter(n=>ts.isFunctionDeclaration(n)&&names.includes(n.name.text)).map(n=>n.getText(ast)).join('\n');
@@ -10,7 +10,7 @@ const context=vm.createContext({console,Map,Date,deleted_online_payload_keys:new
  getCurrentChatStorageIdentity:()=>({storage_id:'chat',aliases:[]}),attachCurrentOnlineScope:x=>x,readOnlineDataStore:()=>({}),findStoredChatKeyForCurrentChat:()=>null,writeOnlineDataStore:()=>false,pruneOnlineStorageForCurrentScope:()=>{pruned=true;},
  online_payload_write_promises:new Map(), online_payload_cache:new Map(),ONLINE_PAYLOAD_STORE_NAME:'payloads',openOnlinePayloadDatabase:async()=>({transaction:()=>transaction}),
 });
-vm.runInContext(ts.transpileModule(fs.readFileSync('src/util/酒馆助手脚本/线上功能脚本/payload-codec.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,context);
+vm.runInContext(ts.transpileModule(fs.readFileSync('src/util/酒馆助手脚本/拟界文库/payload-codec.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,context);
 vm.runInContext(ts.transpileModule(code,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText,context);
 const html='<img src="data:image/png;base64,'+'A'.repeat(2700000)+'">';
 const variant={id:'v',html,memory_text:'memory',raw_result:html};

@@ -3,7 +3,7 @@ const vm = require('node:vm');
 const assert = require('node:assert/strict');
 const ts = require('typescript');
 const { JSDOM } = require('jsdom');
-const base = 'src/util/酒馆助手脚本/线上功能脚本/';
+const base = 'src/util/酒馆助手脚本/拟界文库/';
 function load(context, file, names) {
   const text = fs.readFileSync(base + file, 'utf8');
   const ast = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);

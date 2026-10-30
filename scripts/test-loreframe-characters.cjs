@@ -8,7 +8,7 @@ const ctx = vm.createContext({ console, host_window: host, DOMParser: dom.window
   getCurrentOnlineScopeInfo: () => ({ scope_key: 'character' }),
   readGlobalVariableValue: () => globalRows, writeGlobalVariableValue: (_, rows) => (globalRows = rows, true),
 });
-for (const name of ['image-characters', 'ui-render']) vm.runInContext(ts.transpileModule(fs.readFileSync(`src/util/酒馆助手脚本/线上功能脚本/${name}.ts`, 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, ctx);
+for (const name of ['image-characters', 'ui-render']) vm.runInContext(ts.transpileModule(fs.readFileSync(`src/util/酒馆助手脚本/拟界文库/${name}.ts`, 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, ctx);
 const plain = value => JSON.parse(JSON.stringify(value));
 (async () => {
   await ctx.saveImageCharacters('global', [{ name: 'Alice', prompt: 'red hair', negative: 'hat' }, { name: 'Bob', prompt: 'beard' }]);

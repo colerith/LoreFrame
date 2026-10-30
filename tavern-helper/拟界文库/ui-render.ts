@@ -200,16 +200,9 @@ function renderPromptSettings(iframe_document: Document) {
   renderAppearanceSettings(iframe_document);
   const settings = getSettings();
   const published_prompt_ids = new Set(getPublishedPromptPresets().map(prompt => prompt.id));
-  const published_base_prompt_ids = new Set(getPublishedBasePromptItems().map(prompt => prompt.id));
   const published_detail_prompt_ids = new Set(getPublishedDetailPromptItems().map(prompt => prompt.id));
   const published_summary_tag_ids = new Set(getPublishedSummaryTagPresets().map(tag => tag.id));
   const builtin_prompt_ids = new Set(['preset-rich-content-modern', 'preset-mobile-private-space']);
-  const builtin_base_prompt_ids = new Set([
-    'base-light-page',
-    'base-rich-content-page',
-    'base-strong-interactive-page',
-    'base-mobile-app-page',
-  ]);
   const builtin_detail_prompt_ids = new Set([
     'detail-modern-digital-media',
     'detail-mobile-private-space',
@@ -324,18 +317,21 @@ function renderPromptSettings(iframe_document: Document) {
   const base_select = iframe_document.querySelector<HTMLSelectElement>('[data-base-prompt-select]');
   if (base_select) {
     base_select.innerHTML = settings.base_prompts
-      .map(prompt => {
-        const prefix =
-          published_base_prompt_ids.has(prompt.id) || prompt.source === 'published'
-            ? '[已发布] '
-            : !builtin_base_prompt_ids.has(prompt.id) && prompt.source === 'personal'
-              ? '[本地] '
-              : '';
-        return `<option value="${escapeHtml(prompt.id)}">${prefix}${escapeHtml(prompt.name)}</option>`;
-      })
+      .map(prompt => `<option value="${escapeHtml(prompt.id)}">${escapeHtml(prompt.name)}</option>`)
       .join('');
     base_select.value = active_base_prompt?.id || '';
   }
+  const base_config = normalizeRandomBasePrompt(settings.random_base_prompt, settings.base_prompts);
+  for (const kind of ['resident', 'random'] as const) {
+    const list = iframe_document.querySelector<HTMLElement>(`[data-${kind}-base-list]`);
+    const ids = kind === 'resident' ? base_config.resident_ids : base_config.prompt_ids;
+    if (list) list.innerHTML = settings.base_prompts.map(prompt =>
+      `<label class="random-prompt-option"><input type="checkbox" data-${kind}-base-id="${escapeHtml(prompt.id)}" ${ids.includes(prompt.id) ? 'checked' : ''} /><span>${escapeHtml(prompt.name)}</span></label>`,
+    ).join('');
+  }
+  setChecked(iframe_document, '[data-random-base-enabled]', base_config.enabled);
+  updateValue(iframe_document, '[data-random-base-count]', String(base_config.count));
+  updateValue(iframe_document, '[data-random-base-probability]', String(base_config.trigger_probability));
   const detail_select = iframe_document.querySelector<HTMLSelectElement>('[data-detail-prompt-select]');
   const detail_library_root = iframe_document.querySelector<HTMLElement>('[data-detail-library-root]');
   const detail_folder_id =
@@ -960,7 +956,7 @@ function renderPromptSettings(iframe_document: Document) {
   }
   const base_publish_toggle = iframe_document.querySelector<HTMLElement>('[data-toggle-publish-base-prompt]');
   if (base_publish_toggle) {
-    const is_published = published_base_prompt_ids.has(active_base_prompt?.id);
+    const is_published = getPublishedBasePromptItems().some(prompt => prompt.id === active_base_prompt?.id);
     base_publish_toggle.title = is_published ? '取消发布基础提示词' : '发布基础提示词';
     base_publish_toggle.setAttribute('aria-label', base_publish_toggle.title);
     base_publish_toggle.classList.toggle('is-active', is_published);
