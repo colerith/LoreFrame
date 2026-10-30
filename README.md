@@ -2,7 +2,7 @@
 
 拟界文库是一个运行在酒馆助手中的小剧场脚本。它会结合当前聊天、角色设定与绑定的世界书，把剧情延伸成可阅读、可交互的网页：角色日常、论坛帖子、聊天记录、物品展示……都可以通过小剧场提示词来定制。
 
-当前版本：**1.7.21**
+当前版本：**1.7.22**
 
 ## ✨ 主要功能
 
@@ -28,7 +28,7 @@ GitHub 版会优先用本地缓存启动，后台检查更新；新版本下载�
 需要固定版本时，仍可使用以下导入语句：
 
 ```js
-import "https://cdn.jsdelivr.net/gh/colerith/LoreFrame@loreframe-v1.7.21/file/loreframe-1.7.21.js";
+import "https://cdn.jsdelivr.net/gh/colerith/LoreFrame@loreframe-v1.7.22/file/loreframe-1.7.22.js";
 ```
 
 ## 🌱 开始使用

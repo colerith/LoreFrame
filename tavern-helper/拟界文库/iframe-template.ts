@@ -5619,8 +5619,14 @@ function buildIframeHtml() {
                             <strong>随机范围（可多选）</strong>
                             <div class="random-prompt-list" data-random-base-list></div>
                             <div class="appearance-theme-schedule">
-                              <label class="field">额外随机基础提示词数<input class="input" type="number" min="1" max="10" step="1" data-random-base-count /></label>
-                              <label class="field">触发概率（%）<input class="input" type="number" min="0" max="100" step="1" data-random-base-probability /></label>
+                              <div class="field">
+                                <label for="online-content-random-base-count">额外随机基础提示词数</label>
+                                <input class="input" id="online-content-random-base-count" type="number" min="1" max="10" step="1" data-random-base-count />
+                              </div>
+                              <div class="field">
+                                <label for="online-content-random-base-probability">触发概率（%）</label>
+                                <input class="input" id="online-content-random-base-probability" type="number" min="0" max="100" step="1" data-random-base-probability />
+                              </div>
                             </div>
                           </section>
 
