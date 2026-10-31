@@ -441,6 +441,7 @@ async function generateOnlineForCurrentChat(
   let parse_or_save_error_logged = false;
   let completed_count = 0;
   try {
+    await waitForCurrentOnlineDataReady();
     const material = await collectOnlineSourceMaterial(target_message_id);
     setOnlineStatus(
       iframe_document,

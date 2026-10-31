@@ -944,8 +944,8 @@ function createOnlineDataStorageSnapshot(data: OnlineData | OnlineDataInput | nu
   );
 }
 
-function writeOnlineDataStore(store: OnlineDataStore, scope_info = getCurrentOnlineScopeInfo()) {
-  if (online_missing_snapshot_pending.size) return false;
+function writeOnlineDataStore(store: OnlineDataStore, scope_info = getCurrentOnlineScopeInfo(), target_chat_id = '') {
+  if (!target_chat_id && online_missing_snapshot_pending.size) return false;
   const next_store = store && typeof store === 'object' ? store : {};
   const previous_chat_locations = new Map<string, Set<string>>();
   getOnlineScopeReadKeys(scope_info).forEach(scope_key => {
@@ -959,9 +959,10 @@ function writeOnlineDataStore(store: OnlineDataStore, scope_info = getCurrentOnl
       previous_chat_locations.set(chat_id, locations);
     });
   });
-  const next_index: OnlineChatIndexItem[] = [];
+  const next_index: OnlineChatIndexItem[] = target_chat_id ? readOnlineChatIndexForScopeKey(scope_info.scope_key).filter(item => item.chat_id !== target_chat_id) : [];
   let succeeded = true;
   Object.entries(next_store).forEach(([chat_id, data]) => {
+    if (target_chat_id && chat_id !== target_chat_id) return;
     if (!data || typeof data !== 'object') {
       return;
     }
@@ -998,6 +999,7 @@ function writeOnlineDataStore(store: OnlineDataStore, scope_info = getCurrentOnl
     previous_chat_locations.delete(chat_id);
   });
   previous_chat_locations.forEach((scope_keys, chat_id) => {
+    if (target_chat_id) return;
     scope_keys.forEach(scope_key => {
       host_window.localStorage.removeItem(getOnlineChatStorageKey(scope_key, chat_id));
       void deleteOnlinePayloadRecord(getOnlinePayloadStorageKey(scope_key, chat_id));
@@ -1005,6 +1007,7 @@ function writeOnlineDataStore(store: OnlineDataStore, scope_info = getCurrentOnl
   });
   succeeded = writeJsonStorage(getOnlineScopeStorageKey(scope_info.scope_key), next_index) && succeeded;
   (scope_info.scope_aliases || []).forEach(alias_key => {
+    if (target_chat_id) return;
     host_window.localStorage.removeItem(getOnlineScopeStorageKey(alias_key));
   });
   return succeeded;
@@ -1255,15 +1258,36 @@ function normalizeOnlineData(data: OnlineDataInput | OnlineData | null | undefin
   return normalized;
 }
 
+async function waitForCurrentOnlineDataReady() {
+  const scope = getCurrentOnlineScopeInfo();
+  const label = getCurrentChatStorageLabel();
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    if (scope.scope_key !== getCurrentOnlineScopeInfo().scope_key || label !== getCurrentChatStorageLabel()) throw Error('聊天已切换，已取消生成。');
+    const store = readOnlineDataStore(scope);
+    const identity = getCurrentChatStorageIdentity();
+    const chat_id = findStoredChatKeyForCurrentChat(store, identity) || identity.storage_id;
+    const previous = store[chat_id];
+    const key = String(previous?.payload_key || getOnlinePayloadStorageKey(scope.scope_key, chat_id));
+    if (!online_payload_load_promises.has(key) && !online_missing_snapshot_pending.has(key)) {
+      if (previous?.payload_storage === 'indexeddb' && previous.entries?.length && !hasInlineOnlinePayload(previous)) throw Error('当前聊天的历史正文读取失败，已保留原记录，未发送生成请求。');
+      return;
+    }
+    await new Promise(resolve => host_window.setTimeout(resolve, 250));
+  }
+  throw Error('当前聊天的历史正文恢复超时，已保留原记录，未发送生成请求；请检查浏览器存储是否可用。');
+}
+
 function saveOnlineData(data: OnlineDataInput | OnlineData): OnlineData {
   const identity = getCurrentChatStorageIdentity();
   const scope = getCurrentOnlineScopeInfo();
   const store = readOnlineDataStore(scope);
-  if (online_payload_load_promises.size || online_missing_snapshot_pending.size) {
+  const chat_id = findStoredChatKeyForCurrentChat(store, identity) || identity.storage_id;
+  const current_payload_key = String(store[chat_id]?.payload_key || getOnlinePayloadStorageKey(scope.scope_key, chat_id));
+  if (online_payload_load_promises.has(current_payload_key) || online_missing_snapshot_pending.has(current_payload_key)) {
     throw Error('剧场正文正在从本地缓存恢复，请稍后重试；原记录未修改。');
   }
-  const chat_id = findStoredChatKeyForCurrentChat(store, identity) || identity.storage_id;
-  if (Object.values(store).some(item => item?.payload_storage === 'indexeddb' && item.entries?.length && !hasInlineOnlinePayload(item))) {
+  const previous = store[chat_id];
+  if (previous?.payload_storage === 'indexeddb' && previous.entries?.length && !hasInlineOnlinePayload(previous)) {
     throw Error('本地剧场正文尚未读取成功，已保留原记录；请重试读取后再编辑。');
   }
   const payload_key = getOnlinePayloadStorageKey(scope.scope_key, chat_id);
@@ -1277,11 +1301,11 @@ function saveOnlineData(data: OnlineDataInput | OnlineData): OnlineData {
   });
   const scope_info = normalized.scope || scope;
   store[chat_id] = normalized;
-  const write_succeeded = writeOnlineDataStore(store, scope_info);
+  const write_succeeded = writeOnlineDataStore(store, scope_info, chat_id);
   if (!write_succeeded) {
     throw Error('localStorage 索引保存失败（与站点总配额不同）；未自动删除旧页面。当前正文已保留在内存，请勿刷新，先备份后重试。');
   }
-  registerOnlineChatIndex(chat_id, normalized);
+  // The targeted write already updates this scope index; keep alias indexes intact.
 
   const metadata_store = getChatMetadataStore();
   if (metadata_store && (metadata_store.entries?.length || metadata_store.html || metadata_store.memory_text)) {
@@ -1290,7 +1314,8 @@ function saveOnlineData(data: OnlineDataInput | OnlineData): OnlineData {
     persistChatMetadata();
   }
   host_window.localStorage.removeItem(`${CHAT_STORAGE_PREFIX}${chat_id}`);
-  const prune_result = pruneOnlineStorageForCurrentScope(getSettings().online_storage.limit_mb);
+  const restoration_pending = online_payload_load_promises.size || online_missing_snapshot_pending.size || Object.values(store).some(item => item?.payload_storage === 'indexeddb' && item.entries?.length && !hasInlineOnlinePayload(item));
+  const prune_result = restoration_pending ? { removed_entries: 0, removed_chats: 0, freed_bytes: 0, usage: null } : pruneOnlineStorageForCurrentScope(getSettings().online_storage.limit_mb);
   if (prune_result.removed_entries > 0) {
     const message = `当前角色缓存已超上限，已自动清理 ${prune_result.removed_entries} 条未收藏小剧场。`;
     appendRunLog('缓存', message, {

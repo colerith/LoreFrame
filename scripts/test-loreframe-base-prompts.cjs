@@ -98,6 +98,7 @@ Object.assign(context, {
   markGenerationStarted: noop, markGenerationFinished: noop, createGenerationId: () => 'batch',
   buildSecondaryApiConfig: () => null, describeGenerationApi: () => 'test', describeGenerationModel: () => 'test',
   maskGenerationApiConfig: () => ({}), getEventApi: () => null, host_window: {}, window: {},
+  waitForCurrentOnlineDataReady: async () => {},
   collectOnlineSourceMaterial: async () => ({ latest_message_id: 8, latest_swipe_id: 0, message_count: 1 }),
   buildImageGenerationThinkingPrompt: () => '',
   getApiFunction: name => name === 'generateRaw' ? async args => {

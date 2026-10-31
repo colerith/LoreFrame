@@ -18,6 +18,7 @@ assert.equal(c.pruneOnlineDataAgainstCurrentMessages(original).changed,false,'em
 c.saveOnlineData(store.old);assert.ok(store.old);assert.ok(!store['new-fingerprint']);assert.equal(writes,1);
 store.old=shell;assert.throws(()=>c.saveOnlineData(original),/尚未读取成功/);assert.equal(writes,1);
 store.old={...shell,entries:[],inherit_disabled:true};c.saveOnlineData(original);assert.equal(writes,2,'manually cleared chat can generate again');
+c.online_payload_load_promises.set('s/other', new Promise(()=>{})); store.other=shell; c.saveOnlineData(original); assert.equal(writes,3,'another chat hydration must not block current chat save');
 assert.equal(c.shouldPruneOnlineDataForReason('chat_changed'),false);assert.equal(c.shouldPruneOnlineDataForReason('message_deleted'),true);
 const p=vm.createContext({console});load(p,'settings.ts');const long='正负提示词, '.repeat(2500);assert.equal(p.clampPromptText(long),long);assert.equal(p.normalizeImageGenerationPreset({positive_prompt:long,negative_prompt:long}).positive_prompt,long);assert.equal(p.normalizeImageGenerationPreset({negative_prompt:long}).negative_prompt,long);assert.equal(p.normalizeGptImageSettings({positive_prompt:long}).positive_prompt,long);
 console.log('PASS cold restart with delayed payload, empty host chat, stable old key, failed hydration preservation, long positive/negative prompts');
