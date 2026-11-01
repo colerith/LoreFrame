@@ -68,6 +68,7 @@ function normalizeImageAssetMarkup(html: string) {
   });
   // Apply to saved text-theatre pages too, without repainting arbitrary HTML theatres.
   if (document.querySelector('#ryx-card') && document.querySelector('#btn-dark') && document.querySelector('#animated-content')) {
+    document.querySelector('#back-to-top')?.remove();
     const theme_style = document.createElement('style');
     theme_style.textContent = 'html, body { background-color: var(--bg-base, #f6ece1) !important; } html[data-theme="dark"] { color-scheme: dark; } html[data-theme="light"] { color-scheme: light; }';
     document.head.appendChild(theme_style);
