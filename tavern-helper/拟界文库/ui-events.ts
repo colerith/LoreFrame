@@ -3596,6 +3596,7 @@ const syncImageGenerationSettings = (show_detail = false) => {
         renderPromptViewer(iframe_document, '手动刷新');
       });
 
+      iframe_document.querySelector('[data-repair-online-reply]')?.addEventListener('click', () => openOnlineRepairPanel(iframe_document));
       clear_run_log?.addEventListener('click', () => {
         run_logs = [];
         renderRunLog(iframe_document);

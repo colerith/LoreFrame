@@ -5790,6 +5790,7 @@ function buildIframeHtml() {
                                 <div class="run-log-summary" data-run-log-summary>
                                   <span class="run-log-summary__chip"><strong>0</strong> 条日志</span>
                                 </div>
+                                <button class="plain-button" type="button" data-repair-online-reply>修复回复 / 重新保存</button>
                                 <button class="plain-button" type="button" data-clear-run-log>清空日志</button>
                               </div>
                               <div class="run-log-list" data-run-log-list>

@@ -1,3 +1,71 @@
+type OnlineRepairDraft = {
+  scope: string; chat: string; raw: string; mode: 'text' | 'html';
+  metadata: { message_id: string | number; swipe_id?: number; prompt_name?: string; detail_prompt_name?: string; source_message_signature?: string; entry_key?: string; message_count?: number };
+};
+let online_repair_draft: OnlineRepairDraft | null = null;
+
+function parseOnlineRepairContent(raw: string, mode: 'text' | 'html', title: string) {
+  if (!raw.trim()) throw Error('请粘贴完整的原始回复。');
+  if (mode === 'text') return parseOnlineGenerationResult(raw, mode, title);
+  const cleaned = stripOnlineThinkingBlocks(raw).replace(/^```(?:html)?\s*/i, '').replace(/```\s*$/, '').trim();
+  const parsed = parseTaggedHtmlGenerationResult(cleaned);
+  if (!parsed) throw Error('未找到可恢复的 HTML。请粘贴完整回复；纯文字内容请切换为文字剧场。');
+  return { ...parsed, raw_result: raw, ...(title.trim() ? { title: title.trim() } : {}) };
+}
+
+function openOnlineRepairPanel(owner: Document) {
+  owner.querySelector('[data-online-repair-panel]')?.remove();
+  const scope = getCurrentOnlineScopeInfo().scope_key;
+  const chat = getCurrentChatStorageLabel();
+  const draft = online_repair_draft?.scope === scope && online_repair_draft.chat === chat ? online_repair_draft : null;
+  const message_id = draft?.metadata.message_id ?? getLatestAssistantMessageId();
+  const swipe_id = draft?.metadata.swipe_id ?? getCurrentMessageSwipeId(message_id);
+  const panel = owner.createElement('section'); panel.className = 'settings-card'; panel.dataset.onlineRepairPanel = '';
+  const note = owner.createElement('p'); note.className = 'settings-card__note';
+  note.textContent = `保存到当前聊天的楼层 ${message_id}，作为新增候选，不覆盖旧剧场。不调用模型、不自动生图。` + (draft ? '已填入本次运行最近失败的完整回复。' : '请从运行日志的原始回复详情复制完整内容；不要只复制截图中的片段。');
+  panel.append(note);
+  const label = (name: string, field: HTMLElement) => { const wrap = owner.createElement('label'); wrap.textContent = name; wrap.append(field); panel.append(wrap); };
+  const mode = owner.createElement('select'); mode.className = 'select';
+  for (const [value, name] of [['html', 'HTML 交互剧场'], ['text', '文字剧场']]) { const option = owner.createElement('option'); option.value = value; option.textContent = name; mode.append(option); }
+  mode.value = draft?.mode || 'html'; label('内容类型', mode);
+  const title = owner.createElement('input'); title.className = 'input'; title.value = draft?.metadata.detail_prompt_name || ''; label('剧场名称（可选）', title);
+  const raw = owner.createElement('textarea'); raw.className = 'input'; raw.rows = 10; raw.value = draft?.raw || ''; raw.style.cssText = 'width:100%;box-sizing:border-box;resize:vertical;font-size:13px;line-height:1.6'; label('完整原始回复（可修改）', raw);
+  const feedback = owner.createElement('p'); feedback.setAttribute('role', 'status'); panel.append(feedback);
+  const actions = owner.createElement('div'); actions.className = 'button-row'; panel.append(actions);
+  const save = owner.createElement('button'); save.type = 'button'; save.className = 'plain-button'; save.textContent = '修复并重新保存'; actions.append(save);
+  const close = owner.createElement('button'); close.type = 'button'; close.className = 'plain-button'; close.textContent = '关闭'; close.onclick = () => panel.remove(); actions.append(close);
+  let saved_payload_key = '';
+  const ensure = () => {
+    if (scope !== getCurrentOnlineScopeInfo().scope_key || chat !== getCurrentChatStorageLabel()) throw Error('聊天已切换，请在原聊天重新打开修复面板。');
+    if (!getVisibleMessageById(message_id) || Number(getCurrentMessageSwipeId(message_id)) !== Number(swipe_id)) throw Error('原楼层已删除、隐藏或切换回复，已取消保存。');
+    if (online_is_generating || active_online_generation_id) throw Error('正在生成剧场，请结束后再修复。');
+  };
+  save.onclick = async () => {
+    save.disabled = true; close.disabled = true;
+    try {
+      ensure(); feedback.textContent = '正在检查当前聊天存储…';
+      if (!saved_payload_key) {
+        const parsed = parseOnlineRepairContent(raw.value, mode.value as 'html' | 'text', title.value);
+        await waitForCurrentOnlineDataReady(); ensure();
+        const saved = saveCurrentOnlineData({ ...draft?.metadata, ...parsed, message_id, swipe_id });
+        saved_payload_key = saved.payload_key || getCurrentOnlineData().payload_key || '';
+        raw.disabled = mode.disabled = title.disabled = true;
+      }
+      await waitForOnlinePayloadSave(saved_payload_key);
+      if (online_repair_draft === draft) online_repair_draft = null;
+      feedback.textContent = '已修复并保存为新候选。可返回首页查看，无需重新生成。';
+      save.textContent = '已保存';
+      renderOnlineContent(owner);
+      appendRunLog('修复', '已使用原始回复修复并保存，未调用 API。', { message_id });
+    } catch (error) {
+      feedback.textContent = String((error as Error).message || error);
+      save.disabled = false;
+      if (saved_payload_key) { save.disabled = true; feedback.textContent += ' 内容已进入内存，请先备份，不要重复保存或刷新。'; }
+    } finally { close.disabled = false; }
+  };
+  owner.querySelector('[data-run-log-list]')?.before(panel);
+}
+
 type SecondaryApiProvider = 'openai' | 'google_ai_studio' | 'vertex_ai';
 
 type SecondaryApiBaseConfig = {
@@ -440,6 +508,8 @@ async function generateOnlineForCurrentChat(
   let stream_stop: EventListenerHandle = null;
   let parse_or_save_error_logged = false;
   let completed_count = 0;
+  const repair_scope = getCurrentOnlineScopeInfo().scope_key;
+  const repair_chat = getCurrentChatStorageLabel();
   try {
     await waitForCurrentOnlineDataReady();
     const material = await collectOnlineSourceMaterial(target_message_id);
@@ -585,8 +655,8 @@ async function generateOnlineForCurrentChat(
         appendRunLog('报错', 'API 返回为空，未生成页面。');
         throw Error('API 返回为空，未生成页面。');
       }
-      const parsed = parseOnlineGenerationResult(result, active_prompt.output_mode, active_detail_prompt_name);
       try {
+        const parsed = parseOnlineGenerationResult(result, active_prompt.output_mode, active_detail_prompt_name);
         saveCurrentOnlineData({
           ...parsed,
           message_id: material.latest_message_id,
@@ -599,7 +669,12 @@ async function generateOnlineForCurrentChat(
         });
       } catch (error) {
         parse_or_save_error_logged = true;
-        appendRunLog('报错', '解析或保存异常。', formatErrorForDisplay(error));
+        online_repair_draft = {
+          scope: repair_scope, chat: repair_chat,
+          raw: typeof result === 'string' ? result : JSON.stringify(result), mode: active_prompt.output_mode || 'html',
+          metadata: { message_id: material.latest_message_id, swipe_id: material.latest_swipe_id, prompt_name: active_prompt.name, detail_prompt_name: active_detail_prompt_name, source_message_signature: material.latest_message_signature, entry_key: material.latest_message_key, message_count: material.message_count },
+        };
+        appendRunLog('报错', '解析或保存异常，可在调试工具中修复回复。', formatErrorForDisplay(error));
         throw error;
       }
       completed_count += 1;
