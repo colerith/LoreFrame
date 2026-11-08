@@ -375,11 +375,24 @@ function openOnlinePayloadDatabase(): Promise<IDBDatabase | null> {
       resolve(null);
     }
   });
-  return online_payload_db_promise;
+  const pending = online_payload_db_promise;
+  void pending.then(database => {
+    if (!database && online_payload_db_promise === pending) online_payload_db_promise = null;
+    if (database) database.onversionchange = () => { database.close(); if (online_payload_db_promise === pending) online_payload_db_promise = null; };
+  });
+  return pending;
 }
 
 function readOnlinePayloadRecord(payload_key: string): Promise<OnlineIndexedPayloadRecord | null> {
-  return openOnlinePayloadDatabase().then(
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<null>(resolve => {
+    timer = setTimeout(() => {
+      appendRunLog('缓存', '历史正文读取超时，已保留原记录。', { payload_key });
+      online_payload_db_promise = null;
+      resolve(null);
+    }, 8000);
+  });
+  const reading = openOnlinePayloadDatabase().then(
     database =>
       new Promise(resolve => {
         if (!database) {
@@ -400,11 +413,13 @@ function readOnlinePayloadRecord(payload_key: string): Promise<OnlineIndexedPayl
             }
           };
           request.onerror = () => resolve(null);
+          transaction.onabort = transaction.onerror = () => resolve(null);
         } catch {
           resolve(null);
         }
       }),
   );
+  return Promise.race([reading, timeout]).finally(() => clearTimeout(timer));
 }
 
 const deleted_online_payload_keys = new Set<string>();
@@ -541,6 +556,8 @@ function mergeOnlineDataPayload(
   });
 }
 
+const online_payload_read_failures = new Set<string>();
+
 function queueOnlinePayloadHydration(
   scope_key: string,
   chat_id: string,
@@ -552,6 +569,10 @@ function queueOnlinePayloadHydration(
   if (!supportsOnlinePayloadIndexedDb()) {
     return null;
   }
+  // Empty chats have no persisted payload to restore. Starting a read here
+  // would make the immediately following save reject its own read task.
+  if (!readJsonStorage(getOnlineChatStorageKey(scope_key, chat_id), null)) return null;
+  if (online_payload_read_failures.has(payload_key)) return null;
   const existing_promise = online_payload_load_promises.get(payload_key);
   if (existing_promise) {
     return null;
@@ -562,6 +583,7 @@ function queueOnlinePayloadHydration(
       if (online_payload_cache.has(payload_key)) return online_payload_cache.get(payload_key)!;
       if (!readJsonStorage(getOnlineChatStorageKey(scope_key, chat_id), null)) return null;
       if (!record?.data) {
+        online_payload_read_failures.add(payload_key);
         return null;
       }
       const normalized = normalizeOnlineData({
@@ -574,6 +596,11 @@ function queueOnlinePayloadHydration(
         renderOnlineContent(current_iframe_document);
       }
       return normalized;
+    })
+    .catch(error => {
+      online_payload_read_failures.add(payload_key);
+      appendRunLog('缓存', '历史正文读取失败，原数据保留。', error);
+      return null;
     })
     .finally(() => {
       online_payload_load_promises.delete(payload_key);
@@ -796,6 +823,8 @@ function recoverMissingOnlineSnapshot(scope_key: string, chat_id: string) {
     appendRunLog('缓存', '已从 IndexedDB 找回缺失的聊天索引，正文未修改。', { entries: data.entries.length });
   }).catch(error => appendRunLog('缓存', '缺失索引恢复失败，原正文保留。', error)).finally(() => {
     online_missing_snapshot_pending.delete(payload_key);
+    if (!restored && !readJsonStorage(getOnlineChatStorageKey(scope_key, chat_id), null) && readOnlineChatIndexForScopeKey(scope_key).some(item => item.chat_id === chat_id)) online_payload_read_failures.add(payload_key);
+    if (restored) online_payload_read_failures.delete(payload_key);
     if (restored && current_iframe_document) renderOnlineContent(current_iframe_document);
   });
 }
@@ -1261,6 +1290,7 @@ function normalizeOnlineData(data: OnlineDataInput | OnlineData | null | undefin
 async function waitForCurrentOnlineDataReady() {
   const scope = getCurrentOnlineScopeInfo();
   const label = getCurrentChatStorageLabel();
+  let retried = false;
   for (let attempt = 0; attempt < 40; attempt += 1) {
     if (scope.scope_key !== getCurrentOnlineScopeInfo().scope_key || label !== getCurrentChatStorageLabel()) throw Error('聊天已切换，已取消生成。');
     const store = readOnlineDataStore(scope);
@@ -1268,7 +1298,16 @@ async function waitForCurrentOnlineDataReady() {
     const chat_id = findStoredChatKeyForCurrentChat(store, identity) || identity.storage_id;
     const previous = store[chat_id];
     const key = String(previous?.payload_key || getOnlinePayloadStorageKey(scope.scope_key, chat_id));
+    if (!retried && online_payload_read_failures.has(key)) {
+      retried = true;
+      online_payload_read_failures.delete(key);
+      if (!previous && online_missing_snapshot_attempted.has(key)) {
+        online_missing_snapshot_attempted.delete(key);
+        recoverMissingOnlineSnapshot(scope.scope_key, chat_id);
+      } else queueOnlinePayloadHydration(previous?.scope?.scope_key || scope.scope_key, chat_id, key);
+    }
     if (!online_payload_load_promises.has(key) && !online_missing_snapshot_pending.has(key)) {
+      if (!previous && online_payload_read_failures.has(key)) throw Error('历史剧场索引缺失且正文恢复失败，已保留原记录，未发送生成请求。');
       if (previous?.payload_storage === 'indexeddb' && previous.entries?.length && !hasInlineOnlinePayload(previous)) throw Error('当前聊天的历史正文读取失败，已保留原记录，未发送生成请求。');
       return;
     }
@@ -1287,6 +1326,7 @@ function saveOnlineData(data: OnlineDataInput | OnlineData): OnlineData {
     throw Error('剧场正文正在从本地缓存恢复，请稍后重试；原记录未修改。');
   }
   const previous = store[chat_id];
+  if (!previous && online_payload_read_failures.has(current_payload_key)) throw Error('历史剧场索引缺失且正文恢复失败，已取消保存以保护原记录。');
   if (previous?.payload_storage === 'indexeddb' && previous.entries?.length && !hasInlineOnlinePayload(previous)) {
     throw Error('本地剧场正文尚未读取成功，已保留原记录；请重试读取后再编辑。');
   }
