@@ -100,6 +100,28 @@ function stripOnlineThinkingBlocks(text: unknown) {
     .trim();
 }
 
+function extractTextTheaterTitle(text: string) {
+  const lines = text.split(/\r?\n/);
+  let fenced = false;
+  const headings: { level: number; text: string }[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (/^(```|~~~)/.test(line)) { fenced = !fenced; continue; }
+    if (fenced) continue;
+    const heading = line.match(/^(#{1,6})\s+(.+?)(?:\s+#+)?$/);
+    if (heading) headings.push({ level: heading[1].length, text: heading[2] });
+    else if (line && /^(?:=+|-+)\s*$/.test(lines[i + 1] || '')) {
+      headings.push({ level: lines[i + 1].trim().startsWith('=') ? 1 : 2, text: line });
+    }
+  }
+  const heading = headings.sort((a, b) => a.level - b.level)[0]?.text;
+  const first = lines.find(line => line.trim())?.trim() || '';
+  const candidate = heading || first.match(/^(?:标题|题目)\s*[:：]\s*(.+)$/)?.[1]
+    || first.match(/^\*\*(.+)\*\*$/)?.[1] || '';
+  return candidate.replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/\*\*|__|\|\||~~|`|\*/g, '').replace(/\s+/g, ' ').trim();
+}
+
 function parseOnlineGenerationResult(result: unknown, output_mode: 'text' | 'html' = 'html', theater_name = '') {
   const text = typeof result === 'string' ? result : JSON.stringify(result);
   const cleaned_text = stripOnlineThinkingBlocks(text);
@@ -107,9 +129,10 @@ function parseOnlineGenerationResult(result: unknown, output_mode: 'text' | 'htm
   if (output_mode === 'text') {
     if (!trimmed) throw Error('文字剧场正文为空');
     const payload = JSON.stringify(trimmed).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026');
+    const title = extractTextTheaterTitle(trimmed) || theater_name.trim() || '文字剧场';
     return {
-      title: theater_name.trim() || '文字剧场',
-      html: TEXT_THEATER_TEMPLATE.replace(/<title>[\s\S]*?<\/title>/i, () => '<title>' + escapeHtml(theater_name.trim() || '文字剧场') + '</title>').replace('__LOREFRAME_TEXT_JSON__', () => payload),
+      title,
+      html: TEXT_THEATER_TEMPLATE.replace(/<title>[\s\S]*?<\/title>/i, () => '<title>' + escapeHtml(title) + '</title>').replace('__LOREFRAME_TEXT_JSON__', () => payload),
       memory_text: sanitizeMemoryText(trimmed),
       raw_result: cleaned_text,
     };

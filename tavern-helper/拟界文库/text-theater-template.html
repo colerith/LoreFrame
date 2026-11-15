@@ -229,6 +229,15 @@
         border-left: 3px solid var(--text-subtle);
     }
 
+    .content .highlight-inline {
+        background: var(--glass-element-bg);
+        color: var(--text-main);
+        padding: 2px 6px;
+        border-radius: 4px;
+        box-decoration-break: clone;
+        -webkit-box-decoration-break: clone;
+    }
+
     .content h1, .content h2, .content h3, .content h4 {
         margin: 24px 0 12px 0;
         padding-bottom: 8px;
@@ -539,7 +548,6 @@
     const animatedContent = document.getElementById('animated-content');
     const highlightVars = ['var(--hl-1)', 'var(--hl-2)', 'var(--hl-3)'];
 
-    const applyCode = (t) => t.replace(/`(.*?)`/g, (m, c) => `<code>${c}</code>`);
     const applyBold = (t) => t.replace(/\*\*(.*?)\*\*/g, (m, c) => `<strong>${c}</strong>`);
     const applyStrikethrough = (t) => t.replace(/\~\~(.*?)\~\~|<del>(.*?)<\/del>/g, (m, c1, c2) => `<s>${c1 || c2}</s>`);
     const applyItalic = (t) => t.replace(/\*(.*?)\*/g, (m, c) => `<em>${c}</em>`);
@@ -549,8 +557,16 @@
     });
 
     function parseInlineMarkdown(text) {
-        const escaped = String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-        return applyItalic(applyStrikethrough(applyBold(applyCode(applyHighlight(escaped)))));
+        const tokens = [];
+        const protectedText = String(text).replace(/`([^`]*?)`|\|\|(.+?)\|\|/g, (match, code, highlighted) => {
+            const html = code !== undefined
+                ? '<code>' + code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</code>'
+                : '<span class="highlight-inline">' + parseInlineMarkdown(highlighted) + '</span>';
+            return '\uE000' + (tokens.push(html) - 1) + '\uE001';
+        });
+        const escaped = protectedText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        return applyItalic(applyStrikethrough(applyBold(applyHighlight(escaped))))
+            .replace(/\uE000(\d+)\uE001/g, (match, index) => tokens[Number(index)] ?? match);
     }
 
     function parseContent(lines) {
@@ -558,6 +574,11 @@
         let i = 0;
 
         const isTableSeparator = (line) => /^\|(?:\s*:?-+:?\s*\|)+$/.test(line);
+        const splitTableRow = (line) => {
+            const tokens = [];
+            const protectedLine = line.trim().slice(1, -1).replace(/`[^`]*`|\|\|.+?\|\|/g, match => '\uE002' + (tokens.push(match) - 1) + '\uE003');
+            return protectedLine.split('|').map(cell => cell.replace(/\uE002(\d+)\uE003/g, (match, index) => tokens[Number(index)] ?? match).trim());
+        };
 
         while (i < lines.length) {
             const trimmedLine = lines[i].trim();
@@ -570,10 +591,10 @@
                     if (align.endsWith(':')) return 'right';
                     return 'left';
                 });
-                tableData.headers = lines[i].trim().split('|').slice(1, -1).map(s => s.trim());
+                tableData.headers = splitTableRow(lines[i]);
                 let rowIndex = i + 2;
                 while (rowIndex < lines.length && lines[rowIndex].trim().startsWith('|')) {
-                    tableData.rows.push(lines[rowIndex].trim().split('|').slice(1, -1).map(s => s.trim()));
+                    tableData.rows.push(splitTableRow(lines[rowIndex]));
                     rowIndex++;
                 }
                 let tableHTML = '<table><thead><tr>';
@@ -606,7 +627,7 @@
                 while (currentIndex < lines.length && lines[currentIndex].trim().startsWith('||')) {
                     const currentBlockLine = lines[currentIndex].trim();
                     let rawInnerLine = currentBlockLine.substring(2);
-                    let cleanedInnerLine = rawInnerLine.replace(/\|\|/g, '');
+                    let cleanedInnerLine = rawInnerLine.replace(/\|\|\s*$/, '');
                     groupedRawInnerLines.push(cleanedInnerLine);
                     currentIndex++;
                 }
